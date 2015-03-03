@@ -7,7 +7,7 @@ import json
 from ManagerAPI import ManagerAPI
 
 # The token to use when connecting to the endpoint
-API_TOKEN = "INSERT_YOUR_TOKEN_HERE"
+API_TOKEN = "<enter-your-token-here>"
 API_VERSION = 1
 
 api = ManagerAPI(API_TOKEN, API_VERSION)

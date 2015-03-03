@@ -21,7 +21,7 @@ import org.json.JSONObject;
 public class CloudManagerAPITest {
 
 	// The token to use when connecting to the endpoint
-	private static final String API_TOKEN = "INSERT_YOUR_TOKEN_HERE";
+	private static final String API_TOKEN = "<enter-your-token-here>";
 	// The version of the API we will use
 	private static final int API_VERSION = 1;
 	// The sample image URLs we are using in this example that will be used as targets inside a target collection

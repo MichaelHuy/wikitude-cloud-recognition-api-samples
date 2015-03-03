@@ -7,7 +7,7 @@
 include('./ManagerAPI.php');
 
 # The token to use when connecting to the endpoint
-$token = "INSERT_YOUR_TOKEN_HERE";
+$token = "<enter-your-token-here>";
 $api = new ManagerAPI($token, "1");
 
 // create a target colection with the name testTargetCollection 

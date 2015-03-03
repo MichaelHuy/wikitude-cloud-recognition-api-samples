@@ -14,7 +14,7 @@
         var ManagerApi = require('./ManagerAPI.js');
 
         // create API using own token and version
-        var api = new ManagerApi('INSERT_YOUR_TOKEN_HERE', 1);
+        var api = new ManagerApi('<enter-your-token-here>', 1);
 
         // function called once target collection was created
         var testTargetCollection = function(createdTargetCollection) {

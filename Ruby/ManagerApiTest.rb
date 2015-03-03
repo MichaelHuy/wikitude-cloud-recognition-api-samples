@@ -5,7 +5,7 @@
 require_relative "./ManagerAPI"
 
 # The token to use when connecting to the endpoint
-API_TOKEN = "INSERT_YOUR_TOKEN_HERE"
+API_TOKEN = "<enter-your-token-here>"
 # The version of the API we will use
 API_VERSION = 1
 
