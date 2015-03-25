@@ -51,8 +51,8 @@ class ManagerAPI
         $options = array(
             'http' => array(
                 'method' => $method,
-                'content' => json_encode($payload),
-                //'ignore_errors' => '1',
+                'content' => ($payload == null ? '' : json_encode($payload)),
+                // 'ignore_errors' => '1',
                 'header'=>  "Content-Type: application/json\r\n" .
                             "X-Version: " . $this->apiVersion . "\r\n" .
                             "X-Token: " . $this->apiToken . "\r\n"
