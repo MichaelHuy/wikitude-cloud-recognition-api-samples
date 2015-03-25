@@ -30,7 +30,7 @@ class ManagerAPI
         //initialize the values
         $this->apiToken = $token;
         $this->apiVersion = $version;
-        $this->apiRoot = $this->$API_HOST;
+        $this->apiRoot = $this->API_HOST;
     }
 
     /**
