@@ -219,7 +219,7 @@ public class CloudManagerAPI {
 	 */
 	public boolean generateTargetCollection(final String tcId) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException {
 		final String requestUrl = URL_GENERATE_TC.replace (PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8") );
-		final String responseString = this.sendRequest( requestUrl, null, "GET");
+		final String responseString = this.sendRequest( requestUrl, null, "POST");
 		return responseString!=null && responseString.isEmpty();
 	}
 	
