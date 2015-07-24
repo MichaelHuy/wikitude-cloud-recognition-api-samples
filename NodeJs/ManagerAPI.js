@@ -14,7 +14,7 @@ var apiToken = null;
 var apiVersion = null;
 
 // root url of the API
-var API_ENDPOINT_ROOT       = "api-stage.wikitude.com";
+var API_ENDPOINT_ROOT       = "api.wikitude.com";
 
 // placeholders used for url-generation
 var PLACEHOLDER_TC_ID       = "${TC_ID}";
