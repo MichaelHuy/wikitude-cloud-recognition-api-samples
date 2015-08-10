@@ -8,7 +8,7 @@ from ManagerAPI import ManagerAPI
 
 # The token to use when connecting to the endpoint
 API_TOKEN = "<enter-your-token-here>"
-API_VERSION = 1
+API_VERSION = 2
 
 api = ManagerAPI(API_TOKEN, API_VERSION)
 

@@ -23,7 +23,7 @@ public class CloudManagerAPITest {
 	// The token to use when connecting to the endpoint
 	private static final String API_TOKEN = "<enter-your-token-here>";
 	// The version of the API we will use
-	private static final int API_VERSION = 1;
+	private static final int API_VERSION = 2;
 	// The sample image URLs we are using in this example that will be used as targets inside a target collection
 	private static final String[] EXAMPLE_IMAGE_URLS = {
 			"http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg",
