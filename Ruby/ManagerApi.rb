@@ -9,14 +9,14 @@ require 'json'
 class ManagerAPI
 
   # The endpoint where the Wikitude Cloud Targets API resides.
-  @@API_ENDPOINT = 'https://api.wikitude.com'
+  @@API_ENDPOINT = 'https://api-stage.wikitude.com'
 
   @@PLACEHOLDER_TC_ID       = '${TC_ID}'
   @@PLACEHOLDER_TARGET_ID   = '${TARGET_ID}'
 
   @@PATH_ADD_TC      = '/cloudrecognition/targetCollection'
   @@PATH_GET_TC      = '/cloudrecognition/targetCollection/${TC_ID}'
-  @@PATH_GENERATE_TC = '/cloudrecognition/targetCollection/${TC_ID}/generation'
+  @@PATH_GENERATE_TC = '/cloudrecognition/targetCollection/${TC_ID}/generation/cloudarchive'
 
   @@PATH_ADD_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target'
   @@PATH_GET_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target/${TARGET_ID}'

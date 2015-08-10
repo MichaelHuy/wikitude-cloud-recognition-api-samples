@@ -48,7 +48,7 @@ public class CloudManagerAPI {
 	
 	private static final String URL_ADD_TC 		= API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection";
 	private static final String URL_GET_TC 		= API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID;
-	private static final String URL_GENERATE_TC = API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/generation";
+	private static final String URL_GENERATE_TC = API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/generation/cloudarchive";
 	
 	private static final String URL_ADD_TARGET 	= API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target";
 	private static final String URL_GET_TARGET 	= API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target/" + PLACEHOLDER_TARGET_ID;

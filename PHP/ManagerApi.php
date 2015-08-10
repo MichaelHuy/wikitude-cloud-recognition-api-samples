@@ -13,7 +13,7 @@ class ManagerAPI
 
     private $PATH_ADD_TC      = '/targetCollection';
     private $PATH_GET_TC      = '/targetCollection/${TC_ID}';
-    private $PATH_GENERATE_TC = '/targetCollection/${TC_ID}/generation';
+    private $PATH_GENERATE_TC = '/targetCollection/${TC_ID}/generation/cloudarchive';
     
     private $PATH_ADD_TARGET  = '/targetCollection/${TC_ID}/target';
     private $PATH_GET_TARGET  = '/targetCollection/${TC_ID}/target/${TARGET_ID}';

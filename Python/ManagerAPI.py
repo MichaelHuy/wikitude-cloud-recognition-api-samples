@@ -13,7 +13,7 @@ class ManagerAPI:
 
     PATH_ADD_TC      = '/targetCollection'
     PATH_GET_TC      = '/targetCollection/${TC_ID}'
-    PATH_GENERATE_TC = '/targetCollection/${TC_ID}/generation'
+    PATH_GENERATE_TC = '/targetCollection/${TC_ID}/generation/cloudarchive'
 
     PATH_ADD_TARGET  = '/targetCollection/${TC_ID}/target'
     PATH_GET_TARGET  = '/targetCollection/${TC_ID}/target/${TARGET_ID}'
