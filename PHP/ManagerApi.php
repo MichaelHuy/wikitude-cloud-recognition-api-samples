@@ -153,6 +153,18 @@ class ManagerAPI
     }
 
     /**
+     * Update target JSON properties of existing targetId and targetCollectionId
+     * @param tcId id of target collection
+     * @param targetId id of target
+     * @param target JSON representation of the target's properties that shall be updated, e.g. { "physicalHeight": 200 }
+     * @return JSON representation of target as an array
+     */
+    public function updateTarget($tcId, $targetId, $target) {
+        $path = str_replace($this->PLACEHOLDER_TARGET_ID, $targetId, str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TARGET));
+        return $this->sendHttpRequest($target, 'POST', $path);
+    }
+
+    /**
      * Delete existing target from a collection
      * @param tcId id of target collection
      * @param targetId id of target
