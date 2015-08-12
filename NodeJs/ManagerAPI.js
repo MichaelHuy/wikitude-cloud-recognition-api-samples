@@ -47,7 +47,7 @@ module.exports = function (token, version) {
     * @param callback called once target collection was added ( callback(error, result) ), result is JSON Object of created target collection
     */
     this.createTargetCollection = function (tcName, callback) {
-        var payload = { 'name' : tcName};
+        var payload = { 'name' : tcName };
         sendHttpRequest(payload, 'POST', PATH_ADD_TC, callback);
     };
 
@@ -58,7 +58,7 @@ module.exports = function (token, version) {
     * @param callback called once target collection was updated ( callback(error, result) ), result is JSON Object of updated target collection
     */
     this.renameTargetCollection = function (tcId, tcName, callback) {
-        var payload = { 'name' : tcName};
+        var payload = { 'name' : tcName };
         sendHttpRequest(payload, 'POST', PATH_GET_TC.replace(PLACEHOLDER_TC_ID, tcId), callback);
     };
 
@@ -139,6 +139,15 @@ module.exports = function (token, version) {
     };
 };
 
+function isJsonString(str) {
+    try {
+        JSON.parse(str);
+    } catch (e) {
+        return false;
+    }
+    return true;
+}
+
 /**
  * HELPER method to send request to the Wikitude API.
  * 
@@ -198,8 +207,13 @@ function sendHttpRequest (payload, method, path, callback, checkStatusCodeOnly) 
                 callback();
                 return;
             }
+
+            var jsonString = "";
             res.on('data', function (responseBody) {
-                callback(null, responseBody ? JSON.parse(responseBody) : null );
+                jsonString += responseBody;
+                if(isJsonString(jsonString)) {
+                    callback(null, JSON.parse(jsonString));
+                }
             });
         }
     });
@@ -211,5 +225,4 @@ function sendHttpRequest (payload, method, path, callback, checkStatusCodeOnly) 
 
     // write to body
     request.end(payload ? JSON.stringify(payload) : undefined);
-
 }
