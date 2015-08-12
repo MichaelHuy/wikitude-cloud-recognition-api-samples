@@ -57,11 +57,7 @@ public class CloudManagerAPITest {
 				
 				final JSONObject updatedTargetCollectionWithNewTarget = api.addTarget(currentTcId, newTarget);
 				System.out.println("\n\nADDED TARGET #" + i +" to tc " + currentTcId);
-				printTargetCollection(updatedTargetCollectionWithNewTarget);
-				final JSONArray existingTarget = updatedTargetCollectionWithNewTarget.getJSONArray("targets");
-				
-				// for test purpose the last in the JSONArray is used, which might not equal the very recent target image
-				lastAddedTarget = existingTarget.getJSONObject(existingTarget.length()-1);
+				printTarget(updatedTargetCollectionWithNewTarget);
 			}
 			
 			// generate target collection for using its targets in productive Client API
@@ -85,12 +81,6 @@ public class CloudManagerAPITest {
 		System.out.println("************************");
 		System.out.println(" - tc id:      " + tc.getString("id"));
 		System.out.println(" - tc name:    " + tc.getString("name"));
-		final JSONArray targets =  tc.getJSONArray("targets");
-		System.out.println(" - targets: " + targets.length());
-		for (int i=0; i< targets.length(); i++) {
-			final JSONObject currentTarget = targets.getJSONObject(i);
-			printTarget(currentTarget);
-		}
 		System.out.println("************************");
 	}
 	
