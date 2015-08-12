@@ -1,0 +1,10 @@
+{
+  "name": "main",
+  "version": "1.0.0",
+  "description": "An example that shows how to use the ManagerAPI module",
+  "main": "ManagerAPI.js",
+  "author": "Wikitude GmbH",
+  "dependencies": {
+    "express": "^4.13.3"
+  }
+}
