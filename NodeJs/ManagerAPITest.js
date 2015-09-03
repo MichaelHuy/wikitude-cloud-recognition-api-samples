@@ -6,65 +6,52 @@
  * 
  * @author Wikitude
  */
-   
- // [...]
 
-    // tests Wikitude TargetApi usage
-    app.get('/testTargetApi', function(req, res) {
-        var ManagerApi = require('./ManagerAPI.js');
+ var express = require('express');
+ var app = express();
 
-        // create API using own token and version
-        var api = new ManagerApi('<enter-your-token-here>', 1);
+// tests Wikitude TargetApi usage
+app.get('/testTargetApi', function(req, res) {
+    var ManagerApi = require('./ManagerAPI.js');
 
-        // function called once target collection was created
-        var testTargetCollection = function(createdTargetCollection) {
+    // create API using own token and version
+    var api = new ManagerApi('<enter-your-token-here>', 2);
 
-            // rename target collection
-            api.renameTargetCollection(createdTargetCollection.id, 'newName', function(err, updatedTargetCollection) {
-                console.log("updated name : " + updatedTargetCollection.name);
-            });
+    // function called once target collection was created
+    var testTargetCollection = function(createdTargetCollection) {
 
-            // add target to empty collection and delete it right afterwards
-            var imageUrlDeleteTestTarget = "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg";
-            api.addTarget(createdTargetCollection.id, {'name': 'myTarget1', 'imageUrl': imageUrlDeleteTestTarget}, function(err, createdTarget) {
-                console.log("id of created target: " + createdTarget.id);
-                api.deleteTarget(createdTargetCollection.id, createdTarget.id, function(err, result) {
-                    console.log("target deletion applied " + createdTarget.id + ": " + (err ? "NO" : "YES"));
-                });
-            });
+        // create new target, generate target collection, receive all meta information and delete complete target collection
+        var imageUrlNewTarget = "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg";
 
-            // create new target, generate target collection, receive all meta information and delete complete target collection
-            var imageUrlNewTarget = "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg";
-
-            // 1) Add a target image to the collection (Note this happens in parallel to the previous deletion test)
-            api.addTarget(createdTargetCollection.id, {'name': 'myTarget2', 'imageUrl': imageUrlNewTarget}, function(err, createdTarget) {
-                if (err) {
-                    console.log("ERROR OCCURRED: " + err);
-                    return;
-                }
-                console.log("id of created target: " + createdTarget.id);
-
-                // 2) generate target collection
-                api.generateTargetCollection(createdTargetCollection.id, function(err, result) {
-                    console.log("generated targetCollection " + createdTargetCollection.id + "? " + (err ? "NO" : "YES"));
-                });
-            });
-
-        };
-
-        // create target collection and write JSON of target collection to response
-        api.createTargetCollection('firstOne', function(err, result) {
+        // 1) Add a target image to the collection (Note this happens in parallel to the previous deletion test)
+        api.addTarget(createdTargetCollection.id, {'name': 'myTarget1', 'imageUrl': imageUrlNewTarget}, function(err, createdTarget) {
             if (err) {
-                res.status(500);
-                res.send();
-            } else {
-                testTargetCollection(result);
-                res.json(result);
-                res.status(200);
+                console.log("ERROR OCCURRED: " + err);
+                return;
             }
-        });
+            console.log("id of created target: " + createdTarget.id);
 
+            // 2) generate target collection
+            api.generateTargetCollection(createdTargetCollection.id, function(err, result) {
+                console.log("generated targetCollection " + createdTargetCollection.id + "? " + (err ? "NO" : "YES"));
+            });
+        });
+    };
+
+    // create target collection and write JSON of target collection to response
+    api.createTargetCollection('firstOne', function(err, result) {
+        if (err) {
+            res.status(500);
+            res.send();
+        } else {
+            testTargetCollection(result);
+            res.json(result);
+            res.status(200);
+        }
     });
 
+});
 
-// [...]
+var server = app.listen(3000, function () { 
+    console.log('Example app listening now');
+});

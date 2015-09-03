@@ -48,7 +48,7 @@ public class CloudManagerAPI {
 	
 	private static final String URL_ADD_TC 		= API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection";
 	private static final String URL_GET_TC 		= API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID;
-	private static final String URL_GENERATE_TC = API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/generation";
+	private static final String URL_GENERATE_TC = API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/generation/cloudarchive";
 	
 	private static final String URL_ADD_TARGET 	= API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target";
 	private static final String URL_GET_TARGET 	= API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target/" + PLACEHOLDER_TARGET_ID;
@@ -189,6 +189,23 @@ public class CloudManagerAPI {
 	public JSONObject getTarget(final String tcId, final String targetId) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException {
 		final String requestUrl = URL_GET_TARGET.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8")).replace(PLACEHOLDER_TARGET_ID,  URLEncoder.encode(targetId, "UTF-8"));
 		final String responseString = this.sendRequest(requestUrl, null, "GET"); 
+		return new JSONObject(responseString);
+	}
+
+	/**
+     * Update target JSON properties of existing targetId and targetCollectionId
+     * @param tcId id of target collection
+     * @param targetId id of target
+     * @param target JSON representation of the target's properties that shall be updated, e.g. { "physicalHeight": 200 }
+     * @throws FileNotFoundException in case target does not exist
+	 * @throws UnsupportedEncodingException in case utf-8 encoder is not possible in your JRE
+	 * @throws IOException thrown in case of network problems
+	 * @throws JSONException thrown in case server response is no valid JSON
+     * @return JSON representation of target as an array
+     */
+	public JSONObject updateTarget(final String tcId, final String targetId, final JSONObject target) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException {
+		final String requestUrl = URL_GET_TARGET.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8")).replace(PLACEHOLDER_TARGET_ID,  URLEncoder.encode(targetId, "UTF-8"));
+		final String responseString = this.sendRequest(requestUrl, target, "POST"); 
 		return new JSONObject(responseString);
 	}
 	

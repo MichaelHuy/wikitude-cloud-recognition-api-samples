@@ -13,7 +13,7 @@ class ManagerAPI
 
     private $PATH_ADD_TC      = '/targetCollection';
     private $PATH_GET_TC      = '/targetCollection/${TC_ID}';
-    private $PATH_GENERATE_TC = '/targetCollection/${TC_ID}/generation';
+    private $PATH_GENERATE_TC = '/targetCollection/${TC_ID}/generation/cloudarchive';
     
     private $PATH_ADD_TARGET  = '/targetCollection/${TC_ID}/target';
     private $PATH_GET_TARGET  = '/targetCollection/${TC_ID}/target/${TARGET_ID}';
@@ -150,6 +150,18 @@ class ManagerAPI
     public function getTarget($tcId, $targetId) {
         $path = str_replace($this->PLACEHOLDER_TARGET_ID, $targetId, str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TARGET));
         return $this->sendHttpRequest(null, 'GET', $path);
+    }
+
+    /**
+     * Update target JSON properties of existing targetId and targetCollectionId
+     * @param tcId id of target collection
+     * @param targetId id of target
+     * @param target JSON representation of the target's properties that shall be updated, e.g. { "physicalHeight": 200 }
+     * @return JSON representation of target as an array
+     */
+    public function updateTarget($tcId, $targetId, $target) {
+        $path = str_replace($this->PLACEHOLDER_TARGET_ID, $targetId, str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TARGET));
+        return $this->sendHttpRequest($target, 'POST', $path);
     }
 
     /**

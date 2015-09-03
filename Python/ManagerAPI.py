@@ -13,7 +13,7 @@ class ManagerAPI:
 
     PATH_ADD_TC      = '/targetCollection'
     PATH_GET_TC      = '/targetCollection/${TC_ID}'
-    PATH_GENERATE_TC = '/targetCollection/${TC_ID}/generation'
+    PATH_GENERATE_TC = '/targetCollection/${TC_ID}/generation/cloudarchive'
 
     PATH_ADD_TARGET  = '/targetCollection/${TC_ID}/target'
     PATH_GET_TARGET  = '/targetCollection/${TC_ID}/target/${TARGET_ID}'
@@ -44,10 +44,13 @@ class ManagerAPI:
         else:
             data = json.dumps(payload)
 
-        res = requests.request(method, url, headers=headers, data=data)
-        if res.status_code == 200 and method != 'DELETE':
+        res = requests.request(method, url, headers=headers, data=data, verify=False)
+
+        if (res.status_code == 200 or res.status_code == 202) and method != 'DELETE':
             return res.json()
         else:
+            jsonStr = res.json()
+            print jsonStr["reason"] + " (" + str(jsonStr["code"]) + "): " + jsonStr["message"]
             return None
 
     # Create target Collection with given name.
@@ -113,6 +116,15 @@ class ManagerAPI:
     def getTarget(self, tcId, targetId):
         path = (ManagerAPI.PATH_GET_TARGET.replace(ManagerAPI.PLACEHOLDER_TC_ID, tcId)).replace(ManagerAPI.PLACEHOLDER_TARGET_ID, targetId)
         return self.__sendHttpRequest('', "GET", path)
+
+    # Update target JSON properties of existing targetId and targetCollectionId
+    # @param tcId id of target collection
+    # @param targetId id of target
+    # @param target JSON representation of the target's properties that shall be updated, e.g. { "physicalHeight": 200 }
+    # @return JSON representation of target as an array
+    def updateTarget(self, tcId, targetId, target):
+        path = (ManagerAPI.PATH_GET_TARGET.replace(ManagerAPI.PLACEHOLDER_TC_ID, tcId)).replace(ManagerAPI.PLACEHOLDER_TARGET_ID, targetId)
+        return self.__sendHttpRequest(target, "POST", path)
 
     # Delete existing target from a collection
     # @param tcId id of target collection

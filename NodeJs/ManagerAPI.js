@@ -23,7 +23,7 @@ var PLACEHOLDER_TARGET_ID   = "${TARGET_ID}";
 // paths used for manipulation of target collection and target images
 var PATH_ADD_TC      = "/cloudrecognition/targetCollection";
 var PATH_GET_TC      = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID;
-var PATH_GENERATE_TC = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/generation";
+var PATH_GENERATE_TC = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/generation/cloudarchive";
 var PATH_ADD_TARGET  = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target";
 var PATH_GET_TARGET  = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target/" + PLACEHOLDER_TARGET_ID;
 
@@ -47,7 +47,7 @@ module.exports = function (token, version) {
     * @param callback called once target collection was added ( callback(error, result) ), result is JSON Object of created target collection
     */
     this.createTargetCollection = function (tcName, callback) {
-        var payload = { 'name' : tcName};
+        var payload = { 'name' : tcName };
         sendHttpRequest(payload, 'POST', PATH_ADD_TC, callback);
     };
 
@@ -58,7 +58,7 @@ module.exports = function (token, version) {
     * @param callback called once target collection was updated ( callback(error, result) ), result is JSON Object of updated target collection
     */
     this.renameTargetCollection = function (tcId, tcName, callback) {
-        var payload = { 'name' : tcName};
+        var payload = { 'name' : tcName };
         sendHttpRequest(payload, 'POST', PATH_GET_TC.replace(PLACEHOLDER_TC_ID, tcId), callback);
     };
 
@@ -109,6 +109,17 @@ module.exports = function (token, version) {
     };
 
     /**
+     * Update target JSON properties of existing targetId and targetCollectionId
+     * @param tcId id of target collection
+     * @param targetId id of target
+     * @param target JSON representation of the target's properties that shall be updated, e.g. { "physicalHeight": 200 }
+     * @param callback called once the target was updated, result is a JSON representation of the target as an array
+     */
+    this.updateTarget = function (tcId, targetId, target, callback) {
+        sendHttpRequest(target, 'POST', PATH_GET_TARGET.replace(PLACEHOLDER_TC_ID, tcId).replace(PLACEHOLDER_TARGET_ID, targetId), callback);
+    };
+
+    /**
     * Deletes existing target from target collection
     * @param tcId target collection's unique identifier ('id'-attribute)
     * @param targetId target's unique identifier ('id'-attribute)
@@ -127,6 +138,15 @@ module.exports = function (token, version) {
         sendHttpRequest(null, 'GET', PATH_GENERATE_TC.replace(PLACEHOLDER_TC_ID, tcId), callback, true);
     };
 };
+
+function isJsonString(str) {
+    try {
+        JSON.parse(str);
+    } catch (e) {
+        return false;
+    }
+    return true;
+}
 
 /**
  * HELPER method to send request to the Wikitude API.
@@ -165,6 +185,7 @@ function sendHttpRequest (payload, method, path, callback, checkStatusCodeOnly) 
     };
 
     var CODE_POSITIVE_200 = 200;
+    var CODE_POSITIVE_202 = 202;
 
     // set body content type to json, if set
     if (payload) {
@@ -176,7 +197,7 @@ function sendHttpRequest (payload, method, path, callback, checkStatusCodeOnly) 
         res.setEncoding('utf8');
 
         // check for the status of the response
-        if (res.statusCode !== CODE_POSITIVE_200) {
+        if (res.statusCode !== CODE_POSITIVE_200 && res.statusCode !== CODE_POSITIVE_202) {
             // call was unsuccessful, callback with the error
             console.log("Unexpected StatusCode returned: " + res.statusCode);
             callback("Error: Status code " + res.statusCode);
@@ -186,8 +207,13 @@ function sendHttpRequest (payload, method, path, callback, checkStatusCodeOnly) 
                 callback();
                 return;
             }
+
+            var jsonString = "";
             res.on('data', function (responseBody) {
-                callback(null, responseBody ? JSON.parse(responseBody) : null );
+                jsonString += responseBody;
+                if(isJsonString(jsonString)) {
+                    callback(null, JSON.parse(jsonString));
+                }
             });
         }
     });
@@ -199,5 +225,4 @@ function sendHttpRequest (payload, method, path, callback, checkStatusCodeOnly) 
 
     // write to body
     request.end(payload ? JSON.stringify(payload) : undefined);
-
 }

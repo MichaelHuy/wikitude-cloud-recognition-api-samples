@@ -16,7 +16,7 @@ class ManagerAPI
 
   @@PATH_ADD_TC      = '/cloudrecognition/targetCollection'
   @@PATH_GET_TC      = '/cloudrecognition/targetCollection/${TC_ID}'
-  @@PATH_GENERATE_TC = '/cloudrecognition/targetCollection/${TC_ID}/generation'
+  @@PATH_GENERATE_TC = '/cloudrecognition/targetCollection/${TC_ID}/generation/cloudarchive'
 
   @@PATH_ADD_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target'
   @@PATH_GET_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target/${TARGET_ID}'
@@ -61,7 +61,7 @@ class ManagerAPI
     #send the request
     response = http.start { |http| http.request(req) }
 
-    if response.code == "200"
+    if response.code == "200" || response.code == "202"
       if method.upcase == "DELETE"
         return nil
       else
@@ -70,7 +70,12 @@ class ManagerAPI
       end
     else
       #do some error handling! For now, we just print the response code and body
-      puts "Error in request"
+      if response.body != nil
+        res = JSON.parse(response.body);
+        puts res["reason"] + " (" + res["code"].to_s + "): " + res["message"]
+      else
+        puts "Error in request (" + response.code + ")"
+      end
       return nil
     end
   end
@@ -154,6 +159,18 @@ class ManagerAPI
     path[@@PLACEHOLDER_TC_ID] = tcId
     path[@@PLACEHOLDER_TARGET_ID] = targetId
     return sendHttpRequest(nil, "GET", path)
+  end
+
+  # Update target JSON properties of existing targetId and targetCollectionId
+  # @param tcId id of target collection
+  # @param targetId id of target
+  # @param target JSON representation of the target's properties that shall be updated, e.g. { "physicalHeight": 200 }
+  # @return JSON representation of target as an array
+  def updateTarget(tcId, targetId, target)
+    path = @@PATH_GET_TARGET.dup
+    path[@@PLACEHOLDER_TC_ID] = tcId
+    path[@@PLACEHOLDER_TARGET_ID] = targetId
+    return sendHttpRequest(target, "POST", path)
   end
 
   # Delete existing target from a collection
