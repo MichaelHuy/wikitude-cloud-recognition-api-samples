@@ -61,17 +61,22 @@ class ManagerAPI
     #send the request
     response = http.start { |http| http.request(req) }
 
+    jsonResponse = nil
+    if response['Content-Type'] == "application/json" && response['Content-Length'] != "0"
+      jsonResponse = JSON.parse(response.body);
+    end
+
     if response.code == "200" || response.code == "202"
       if method.upcase == "DELETE"
         return nil
       else
         #parse the JSON object and return the WTC URL
-        return JSON.parse(response.body)
+        return jsonResponse
       end
     else
       #do some error handling! For now, we just print the response code and body
-      if response.body != nil
-        res = JSON.parse(response.body);
+      if jsonResponse != nil
+        res = jsonResponse;
         puts res["reason"] + " (" + res["code"].to_s + "): " + res["message"]
       else
         puts "Error in request (" + response.code + ")"

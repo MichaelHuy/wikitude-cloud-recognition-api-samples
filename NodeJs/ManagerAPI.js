@@ -135,7 +135,7 @@ module.exports = function (token, version) {
     * @param callback called once target collection was created ( callback(error, result) ), error and result are undefined in positive case. Note: Depending on the number of targetImages this operation may take from seconds to minutes
     */
     this.generateTargetCollection = function (tcId, callback) {
-        sendHttpRequest(null, 'GET', PATH_GENERATE_TC.replace(PLACEHOLDER_TC_ID, tcId), callback, true);
+        sendHttpRequest(null, 'POST', PATH_GENERATE_TC.replace(PLACEHOLDER_TC_ID, tcId), callback, true);
     };
 };
 
@@ -161,9 +161,6 @@ function isJsonString(str) {
  *            function called once operation finished. first param: error, second: result
  * @param checkStatusCodeOnly
  *            helper flag to ignore repsone body and only check for status code 200
- * @param callback
- *            the callback triggered when the request completes or fails. Needs to comply with the common (err, data)
- *            signature.
  */
 function sendHttpRequest (payload, method, path, callback, checkStatusCodeOnly) {
 
