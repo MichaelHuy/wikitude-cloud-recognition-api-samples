@@ -4,6 +4,15 @@
 import requests
 import json
 
+class APIError(Exception):
+    def __init__(self, code, reason, message):
+        self.code = code
+        self.reason = reason
+        self.message = message
+
+    def __str__(self):
+        return '{0} ({1}): {2}'.format(self.reason, self.code, self.message)
+
 class ManagerAPI:
 
     API_ENDPOINT = 'https://api.wikitude.com/cloudrecognition'
@@ -17,6 +26,8 @@ class ManagerAPI:
 
     PATH_ADD_TARGET  = '/targetCollection/${TC_ID}/target'
     PATH_GET_TARGET  = '/targetCollection/${TC_ID}/target/${TARGET_ID}'
+
+    CONTENT_TYPE_JSON = 'application/json'
 
     def __init__(self, token, version):
         self.token = token
@@ -34,24 +45,34 @@ class ManagerAPI:
         url = ManagerAPI.API_ENDPOINT + path;
 
         headers = {
-            'Content-Type' : 'application/json',
+            'Content-Type' : ManagerAPI.CONTENT_TYPE_JSON,
             'X-Token' : self.token,
             'X-Version' : self.version
         }
 
-        if method == 'GET' or method == 'DELETE':
+        if payload == None:
             data = None
         else:
             data = json.dumps(payload)
 
         res = requests.request(method, url, headers=headers, data=data, verify=False)
 
-        if (res.status_code == 200 or res.status_code == 202) and method != 'DELETE':
-            return res.json()
-        else:
+        jsonStr = None
+        if self.__hasJsonContent(res):
             jsonStr = res.json()
-            print jsonStr["reason"] + " (" + str(jsonStr["code"]) + "): " + jsonStr["message"]
-            return None
+
+        if self.__isResponseSuccess(res):
+            return jsonStr
+        else:
+            raise APIError(jsonStr["code"], jsonStr["reason"], jsonStr["message"])
+
+    def __hasJsonContent(self, response):
+        contentType = response.headers['content-type']
+        contentLength  = response.headers['content-length']
+        return contentType == ManagerAPI.CONTENT_TYPE_JSON and contentLength != '0'
+
+    def __isResponseSuccess(self, res):
+        return res.status_code == 200 or res.status_code == 202
 
     # Create target Collection with given name.
     # @param tcName target collection's name. Note that response contains an "id" 
@@ -62,9 +83,9 @@ class ManagerAPI:
         return self.__sendHttpRequest(payload, 'POST', ManagerAPI.PATH_ADD_TC)
 
     # Retrieve all created and active target collections
-    # @return Array containing JSONObjects of all taregtCollection that were created
+    # @return Array containing JSONObjects of all targetCollection that were created
     def getAllTargetCollections(self):
-        return self.__sendHttpRequest('', 'GET', ManagerAPI.PATH_ADD_TC)
+        return self.__sendHttpRequest(None, 'GET', ManagerAPI.PATH_ADD_TC)
 
     # Rename existing target collection
     # @param tcId id of target collection
@@ -80,26 +101,22 @@ class ManagerAPI:
     # @return array of the JSON representation of target collection
     def getTargetCollection(self, tcId):
         path = ManagerAPI.PATH_GET_TC.replace(ManagerAPI.PLACEHOLDER_TC_ID, tcId)
-        return self.__sendHttpRequest('', 'POST', path)
+        return self.__sendHttpRequest(None, 'POST', path)
 
     # deletes existing target collection by id (NOT name)
     # @param tcId id of target collection
-    # @return true on successful deletion, false otherwise
+    # @return True on successful deletion, raises an APIError otherwise
     def deleteTargetCollection(self, tcId):
         path = ManagerAPI.PATH_GET_TC.replace(ManagerAPI.PLACEHOLDER_TC_ID, tcId)
-        result = self.__sendHttpRequest('', 'DELETE', path)
-        if result == None:
-            ret = True
-        else:
-            ret = False
-        return ret
+        self.__sendHttpRequest(None, 'DELETE', path)
+        return True
 
     # retrieve all targets from a target collection by id (NOT name)
     # @param tcId id of target collection
     # @return array of all targets of the requested target collection
     def getAllTargets(self, tcId):
         path = ManagerAPI.PATH_ADD_TARGET.replace(ManagerAPI.PLACEHOLDER_TC_ID, tcId)
-        return self.__sendHttpRequest('', "GET", path)
+        return self.__sendHttpRequest(None, "GET", path)
 
     # adds a target to an existing target collection
     # @param tcId
@@ -115,7 +132,7 @@ class ManagerAPI:
     # @return JSON representation of target as an array
     def getTarget(self, tcId, targetId):
         path = (ManagerAPI.PATH_GET_TARGET.replace(ManagerAPI.PLACEHOLDER_TC_ID, tcId)).replace(ManagerAPI.PLACEHOLDER_TARGET_ID, targetId)
-        return self.__sendHttpRequest('', "GET", path)
+        return self.__sendHttpRequest(None, "GET", path)
 
     # Update target JSON properties of existing targetId and targetCollectionId
     # @param tcId id of target collection
@@ -129,19 +146,16 @@ class ManagerAPI:
     # Delete existing target from a collection
     # @param tcId id of target collection
     # @param targetId id of target
-    # @return true after successful deletion
+    # @return True after successful deletion
     def deleteTarget(self, tcId, targetId):
         path = (ManagerAPI.PATH_GET_TARGET.replace(ManagerAPI.PLACEHOLDER_TC_ID, tcId)).replace(ManagerAPI.PLACEHOLDER_TARGET_ID, targetId)
-        result = self.__sendHttpRequest('', 'DELETE', path)
-        if result == None:
-            ret = True
-        else:
-            ret = False
-        return ret
+        self.__sendHttpRequest(None, 'DELETE', path)
+        return True
 
-    # Gives command to start generation of given target collection. Note: Added targets will only be analized after generation.
+    # Gives command to start generation of given target collection. Note: Added targets will only be analyzed after generation.
     # @param tcId id of target collection
-    # @return true on successful generation start. It will not wait until the generation is finished. The generation will take some time, depending on the amount of targets that have to be generated
+    # @return True on successful generation start. It will not wait until the generation is finished. The generation will take some time, depending on the amount of targets that have to be generated
     def generateTargetCollection(self, tcId):
         path = ManagerAPI.PATH_GENERATE_TC.replace(ManagerAPI.PLACEHOLDER_TC_ID, tcId)
-        return self.__sendHttpRequest('', 'POST', path)
+        self.__sendHttpRequest(None, 'POST', path)
+        return True
