@@ -2,6 +2,18 @@ require 'uri'
 require 'net/http'
 require 'json'
 
+class APIError < StandardError
+  def initialize(code, reason, message)
+    @code = code
+    @reason = reason
+    @message = message
+  end
+
+  def to_s
+    return "#{@reason} (#{@code}): #{@message}"
+  end
+end
+
 # TargetsAPI shows a simple example how to interact with the Wikitude Cloud Targets API.
 # This example is published under Apache License, Version 2.0
 # http://www.apache.org/licenses/LICENSE-2.0.html
@@ -20,6 +32,8 @@ class ManagerAPI
 
   @@PATH_ADD_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target'
   @@PATH_GET_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target/${TARGET_ID}'
+
+  @@CONTENT_TYPE_JSON = 'application/json'
 
   # Creates a new TargetsAPI object that offers the service to interact with the Wikitude Cloud Targets API.
   # @param token: The token to use when connecting to the endpoint
@@ -49,7 +63,7 @@ class ManagerAPI
       req = Net::HTTP::Post.new(uri.path)
     end
     
-    req["Content-Type"] = 'application/json'
+    req["Content-Type"] = @@CONTENT_TYPE_JSON
     req["X-Token"] = @token
     req["X-Version"] = @version
 
@@ -62,27 +76,25 @@ class ManagerAPI
     response = http.start { |http| http.request(req) }
 
     jsonResponse = nil
-    if response['Content-Type'] == "application/json" && response['Content-Length'] != "0"
+    if hasJsonContent(response)
       jsonResponse = JSON.parse(response.body);
     end
 
-    if response.code == "200" || response.code == "202"
-      if method.upcase == "DELETE"
-        return nil
-      else
-        #parse the JSON object and return the WTC URL
-        return jsonResponse
-      end
+    if isResponseSuccess(response)
+      return jsonResponse
     else
-      #do some error handling! For now, we just print the response code and body
-      if jsonResponse != nil
-        res = jsonResponse;
-        puts res["reason"] + " (" + res["code"].to_s + "): " + res["message"]
-      else
-        puts "Error in request (" + response.code + ")"
-      end
-      return nil
+      raise APIError.new(jsonResponse["code"], jsonResponse["reason"], jsonResponse["message"])
     end
+  end
+
+  def hasJsonContent(res)
+    contentType = res['Content-Type']
+    contentLength = res['Content-Length']
+    return contentType == @@CONTENT_TYPE_JSON && contentLength != "0"
+  end
+
+  def isResponseSuccess(res)
+    return res.code == "200" || res.code == "202"
   end
 
   public
@@ -186,13 +198,8 @@ class ManagerAPI
     path = @@PATH_GET_TARGET.dup
     path[@@PLACEHOLDER_TC_ID] = tcId
     path[@@PLACEHOLDER_TARGET_ID] = targetId
-    result = sendHttpRequest(nil, "DELETE", path)
-    if result == nil
-      ret = true
-    else
-      ret = false
-    end
-    return ret
+    sendHttpRequest(nil, "DELETE", path)
+    return true
   end
 
   # Gives command to start generation of given target collection. Note: Added targets will only be analized after generation.
@@ -201,6 +208,7 @@ class ManagerAPI
   def generateTargetCollection(tcId)
     path = @@PATH_GENERATE_TC.dup
     path[@@PLACEHOLDER_TC_ID] = tcId
-    return sendHttpRequest(nil, "POST", path)
+    sendHttpRequest(nil, "POST", path)
+    return true
   end
 end

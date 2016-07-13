@@ -12,22 +12,26 @@ API_VERSION = 2
 # create the object
 api = ManagerAPI.new(API_TOKEN, API_VERSION)
 
-# create a target colection with the name myTestTC 
-# and store the id which is of the target collection which is returned
-tcName = "myTestTC"
-puts "\n\nCREATE TARGETCOLLECTION:\n"
-result = api.createTargetCollection(tcName)
-puts result
-tcId = result['id']
+begin
+  # create a target colection with the name myTestTC
+  # and store the id which is of the target collection which is returned
+  tcName = "myTestTC"
+  puts "\n\nCREATE TARGETCOLLECTION:\n"
+  result = api.createTargetCollection(tcName)
+  puts result
+  tcId = result['id']
 
-# add a target to the target collection which was created in the previous step
-puts "\n\nADD TARGET:\n"
-target = {
+  # add a target to the target collection which was created in the previous step
+  puts "\n\nADD TARGET:\n"
+  target = {
     "name" => "TC1",
     "imageUrl" => "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg"
-}
-puts api.addTarget(tcId, target)
+  }
+  puts api.addTarget(tcId, target)
 
-# publish the target collection. After the target collection has been published it can be used for recognition
-puts "\n\nPUBLISH TARGETCOLLECTION:\n"
-puts api.generateTargetCollection(tcId)
+  # publish the target collection. After the target collection has been published it can be used for recognition
+  puts "\n\nPUBLISH TARGETCOLLECTION:\n"
+  puts api.generateTargetCollection(tcId)
+rescue APIError => error
+  puts error
+end
