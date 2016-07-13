@@ -27,6 +27,11 @@ var PATH_GENERATE_TC = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID
 var PATH_ADD_TARGET  = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target";
 var PATH_GET_TARGET  = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target/" + PLACEHOLDER_TARGET_ID;
 
+// status codes as returned by the api
+var CODE_OK         = 200;
+var CODE_ACCEPTED   = 202;
+var CODE_NO_CONTENT = 204;
+
 /**
  * Creates a new TargetsAPI object that offers the service to interact with the Wikitude Cloud Targets API.
  * 
@@ -76,7 +81,7 @@ module.exports = function (token, version) {
     * @param callback called once target collection was deleted ( callback(error, result) ), error and result are undefined in positive case
     */
     this.deleteTargetCollection = function (tcId, callback) {
-        sendHttpRequest(null, 'DELETE', PATH_GET_TC.replace(PLACEHOLDER_TC_ID, tcId), callback, true);
+        sendHttpRequest(null, 'DELETE', PATH_GET_TC.replace(PLACEHOLDER_TC_ID, tcId), callback);
     };
 
     /**
@@ -126,7 +131,7 @@ module.exports = function (token, version) {
     * @param callback called once target image was deleted ( callback(error, result) ), result is JSONObject of target collection
     */
     this.deleteTarget = function (tcId, targetId, callback) {
-        sendHttpRequest(null, 'DELETE', PATH_GET_TARGET.replace(PLACEHOLDER_TC_ID, tcId).replace(PLACEHOLDER_TARGET_ID, targetId), callback, true);
+        sendHttpRequest(null, 'DELETE', PATH_GET_TARGET.replace(PLACEHOLDER_TC_ID, tcId).replace(PLACEHOLDER_TARGET_ID, targetId), callback);
     };
 
     /**
@@ -135,7 +140,7 @@ module.exports = function (token, version) {
     * @param callback called once target collection was created ( callback(error, result) ), error and result are undefined in positive case. Note: Depending on the number of targetImages this operation may take from seconds to minutes
     */
     this.generateTargetCollection = function (tcId, callback) {
-        sendHttpRequest(null, 'POST', PATH_GENERATE_TC.replace(PLACEHOLDER_TC_ID, tcId), callback, true);
+        sendHttpRequest(null, 'POST', PATH_GENERATE_TC.replace(PLACEHOLDER_TC_ID, tcId), callback);
     };
 };
 
@@ -150,19 +155,17 @@ function isJsonString(str) {
 
 /**
  * HELPER method to send request to the Wikitude API.
- * 
+ *
  * @param payload
  *            the JSON object that will be posted into the body
- * @param method 
+ * @param method
  *            request method (POST, GET, DELETE)
  * @param path
  *            path of api end-point (appended to API_ENDPOINT_ROOT-url)
  * @param callback
  *            function called once operation finished. first param: error, second: result
- * @param checkStatusCodeOnly
- *            helper flag to ignore repsone body and only check for status code 200
  */
-function sendHttpRequest (payload, method, path, callback, checkStatusCodeOnly) {
+function sendHttpRequest(payload, method, path, callback) {
 
     // The configuration of the request
     var request_options = {
@@ -181,37 +184,31 @@ function sendHttpRequest (payload, method, path, callback, checkStatusCodeOnly) 
         }
     };
 
-    var CODE_POSITIVE_200 = 200;
-    var CODE_POSITIVE_202 = 202;
-
     // set body content type to json, if set
     if (payload) {
         request_options.headers['Content-Type'] = 'application/json';
     }
 
     // Create the request
-    var request = https.request(request_options, function (res) {
-        res.setEncoding('utf8');
+    var request = https.request(request_options, function (response) {
+        response.setEncoding('utf8');
 
-        // check for the status of the response
-        if (res.statusCode !== CODE_POSITIVE_200 && res.statusCode !== CODE_POSITIVE_202) {
+        var statusCode = response.statusCode;
+        if (isResponseStatusError(statusCode)) {
             // call was unsuccessful, callback with the error
-            console.log("Unexpected StatusCode returned: " + res.statusCode);
-            callback("Error: Status code " + res.statusCode);
-        } else {
-            // when we receive data, we call the callback function with err as null, and the wtc URL
-            if (checkStatusCodeOnly) {
-                callback();
-                return;
-            }
-
-            var jsonString = "";
-            res.on('data', function (responseBody) {
-                jsonString += responseBody;
-                if(isJsonString(jsonString)) {
-                    callback(null, JSON.parse(jsonString));
-                }
+            console.log("Unexpected StatusCode returned: " + statusCode);
+            parseResponse(response, function(json) {
+                callback(json.message, json);
             });
+        } else {
+            if (hasNoResponseBody(statusCode)) {
+                callback();
+            } else {
+                // when we receive data, we call the callback function with err as null, and the received data
+                parseResponse(response, function(json) {
+                    callback(null, json);
+                });
+            }
         }
     });
 
@@ -222,4 +219,24 @@ function sendHttpRequest (payload, method, path, callback, checkStatusCodeOnly) 
 
     // write to body
     request.end(payload ? JSON.stringify(payload) : undefined);
+}
+
+function isResponseStatusError(statusCode) {
+    return statusCode !== CODE_OK && statusCode !== CODE_ACCEPTED;
+}
+
+function hasNoResponseBody(statusCode) {
+    return statusCode === CODE_ACCEPTED || statusCode === CODE_NO_CONTENT;
+}
+
+function parseResponse(response, callback) {
+    var responseBody = "";
+
+    response
+        .on('data', function (data) {
+            responseBody += data;
+            if (isJsonString(responseBody)) {
+                callback(JSON.parse(responseBody));
+            }
+        });
 }

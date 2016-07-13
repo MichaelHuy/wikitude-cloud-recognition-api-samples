@@ -7,6 +7,8 @@
  * @author Wikitude
  */
 
+ var token = '<enter-your-token-here>';
+
  var express = require('express');
  var app = express();
 
@@ -15,7 +17,7 @@ app.get('/testTargetApi', function(req, res) {
     var ManagerApi = require('./ManagerAPI.js');
 
     // create API using own token and version
-    var api = new ManagerApi('<enter-your-token-here>', 2);
+    var api = new ManagerApi(token, 2);
 
     // function called once target collection was created
     var testTargetCollection = function(createdTargetCollection) {
@@ -33,7 +35,11 @@ app.get('/testTargetApi', function(req, res) {
 
             // 2) generate target collection
             api.generateTargetCollection(createdTargetCollection.id, function(err, result) {
-                console.log("generated targetCollection " + createdTargetCollection.id + "? " + (err ? "NO" : "YES"));
+                if (err) {
+                    console.log("ERROR OCCURRED: " + err);
+                    return;
+                }
+                console.log("generated targetCollection " + createdTargetCollection.id);
             });
         });
     };
