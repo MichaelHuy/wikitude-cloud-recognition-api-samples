@@ -1,8 +1,10 @@
 
 
 import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
@@ -12,10 +14,13 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.net.URLEncoder;
 
+import javax.net.ssl.HttpsURLConnection;
+
 // please find library at https://code.google.com/p/org-json-java/downloads/list and include in your project's build path
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
 
 /**
  * TargetsAPI shows a simple example how to interact with the Wikitude Cloud
@@ -28,6 +33,37 @@ import org.json.JSONObject;
  * 
  */
 public class CloudManagerAPI {
+	public class APIException extends Exception {
+
+		/**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+		
+		private final int code;
+		private final String reason;
+		
+		public APIException(int code, String reason, String message) {
+			super(message);
+			this.code = code;
+			this.reason = reason;
+		}
+		
+		public String getMessage() {
+			final String message = super.getMessage();
+			
+			return String.format("%s (%s): %s", reason, code, message);
+		}
+
+		public int getCode() {
+		    return this.code;
+		}
+
+		public String getReason() {
+		    return this.reason;
+		}
+		
+	}
 
 	// The endpoint where the Wikitude Cloud Targets API resides.
 	// *********************************************************************
@@ -82,8 +118,9 @@ public class CloudManagerAPI {
 	 * @return JSON representation of the created empty target collection
 	 * @throws IOException thrown in case of network problems
 	 * @throws JSONException thrown in case server response is no valid JSON
+	 * @throws APIException thrown in case service responds with an error
 	 */
-	public JSONObject createTargetCollection(final String tcName) throws IOException, JSONException {
+	public JSONObject createTargetCollection(final String tcName) throws IOException, JSONException, APIException {
 		final JSONObject tcJSONObject = new JSONObject();
 		tcJSONObject.put("name", tcName);
 		
@@ -98,8 +135,9 @@ public class CloudManagerAPI {
 	 * @return JSONArray containing JSONObjects of all taregtCollection that were created
 	 * @throws IOException thrown in case of network problems
 	 * @throws JSONException thrown in case server response is no valid JSON
+	 * @throws APIException thrown in case service responds with an error
 	 */
-	public JSONArray getAllTargetCollections() throws IOException, JSONException {
+	public JSONArray getAllTargetCollections() throws IOException, JSONException, APIException {
 		final String requestUrl = URL_ADD_TC;
 		final String response = this.sendRequest(requestUrl, null, "GET");
 		return new JSONArray(response);
@@ -112,8 +150,9 @@ public class CloudManagerAPI {
 	 * @return the updated JSON representation of the modified target collection
 	 * @throws IOException thrown in case of network problems
 	 * @throws JSONException thrown in case server response is no valid JSON
+	 * @throws APIException thrown in case service responds with an error
 	 */
-	public JSONObject renameTargetCollection(final String tcId, final String newName) throws IOException, JSONException {
+	public JSONObject renameTargetCollection(final String tcId, final String newName) throws IOException, JSONException, APIException {
 		final JSONObject tcJSONObject = new JSONObject();
 		tcJSONObject.put("name", newName);
 		
@@ -128,8 +167,9 @@ public class CloudManagerAPI {
 	 * @return JSON representation of target collection
 	 * @throws IOException thrown in case of network problems
 	 * @throws JSONException thrown in case server response is no valid JSON
+	 * @throws APIException thrown in case service responds with an error
 	 */
-	public JSONObject getTargetCollection(final String tcId) throws IOException, JSONException {
+	public JSONObject getTargetCollection(final String tcId) throws IOException, JSONException, APIException {
 		final String requestUrl = URL_GET_TC.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8"));
 		final String responseString = this.sendRequest(requestUrl, null, "GET"); 
 		return new JSONObject(responseString);
@@ -141,8 +181,9 @@ public class CloudManagerAPI {
 	 * @return true on successful deletion, false otherwise
 	 * @throws IOException thrown in case of network problems
 	 * @throws JSONException thrown in case server response is no valid JSON
+	 * @throws APIException thrown in case service responds with an error
 	 */
-	public boolean deleteTargetCollection(final String tcId) throws IOException, JSONException {
+	public boolean deleteTargetCollection(final String tcId) throws IOException, JSONException, APIException {
 		final String requestUrl = URL_GET_TC.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8"));
 		final String responseString = this.sendRequest(requestUrl, null, "DELETE"); 
 		return responseString!=null && responseString.isEmpty();
@@ -154,8 +195,9 @@ public class CloudManagerAPI {
 	 * @return JSONArray of targets within given target collectino
 	 * @throws IOException thrown in case of network problems
 	 * @throws JSONException thrown in case server response is no valid JSON
+	 * @throws APIException thrown in case service responds with an error
 	 */
-	public JSONArray getAllTargets(final String tcId) throws IOException, JSONException {
+	public JSONArray getAllTargets(final String tcId) throws IOException, JSONException, APIException {
 		final String requestUrl = URL_ADD_TARGET.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8"));
 		final String responseString = this.sendRequest(requestUrl, null, "GET"); 
 		return new JSONArray(responseString);
@@ -168,8 +210,9 @@ public class CloudManagerAPI {
 	 * @return JSON representation of created target (includes unique "id"-attribute)
 	 * @throws IOException thrown in case of network problems
 	 * @throws JSONException thrown in case server response is no valid JSON
+	 * @throws APIException thrown in case service responds with an error
 	 */
-	public JSONObject addTarget(final String tcId, final JSONObject target) throws IOException, JSONException {
+	public JSONObject addTarget(final String tcId, final JSONObject target) throws IOException, JSONException, APIException {
 		final String requestUrl = URL_ADD_TARGET.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8"));
 		final String responseString = this.sendRequest(requestUrl, target, "POST");
 		System.out.println("responseString: " + responseString);
@@ -185,8 +228,9 @@ public class CloudManagerAPI {
 	 * @throws UnsupportedEncodingException in case utf-8 encoder is not possible in your JRE
 	 * @throws IOException thrown in case of network problems
 	 * @throws JSONException thrown in case server response is no valid JSON
+	 * @throws APIException thrown in case service responds with an error
 	 */
-	public JSONObject getTarget(final String tcId, final String targetId) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException {
+	public JSONObject getTarget(final String tcId, final String targetId) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException, APIException {
 		final String requestUrl = URL_GET_TARGET.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8")).replace(PLACEHOLDER_TARGET_ID,  URLEncoder.encode(targetId, "UTF-8"));
 		final String responseString = this.sendRequest(requestUrl, null, "GET"); 
 		return new JSONObject(responseString);
@@ -197,13 +241,14 @@ public class CloudManagerAPI {
      * @param tcId id of target collection
      * @param targetId id of target
      * @param target JSON representation of the target's properties that shall be updated, e.g. { "physicalHeight": 200 }
+     * @return JSON representation of target as an array
      * @throws FileNotFoundException in case target does not exist
 	 * @throws UnsupportedEncodingException in case utf-8 encoder is not possible in your JRE
 	 * @throws IOException thrown in case of network problems
 	 * @throws JSONException thrown in case server response is no valid JSON
-     * @return JSON representation of target as an array
+	 * @throws APIException thrown in case service responds with an error
      */
-	public JSONObject updateTarget(final String tcId, final String targetId, final JSONObject target) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException {
+	public JSONObject updateTarget(final String tcId, final String targetId, final JSONObject target) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException, APIException {
 		final String requestUrl = URL_GET_TARGET.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8")).replace(PLACEHOLDER_TARGET_ID,  URLEncoder.encode(targetId, "UTF-8"));
 		final String responseString = this.sendRequest(requestUrl, target, "POST"); 
 		return new JSONObject(responseString);
@@ -218,8 +263,9 @@ public class CloudManagerAPI {
 	 * @throws UnsupportedEncodingException in case utf-8 encoder is not possible in your JRE
 	 * @throws IOException thrown in case of network problems
 	 * @throws JSONException thrown in case server response is no valid JSON
+	 * @throws APIException thrown in case service responds with an error
 	 */
-	public boolean deleteTarget(final String tcId, final String targetId) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException {
+	public boolean deleteTarget(final String tcId, final String targetId) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException, APIException {
 		final String requestUrl = URL_GET_TARGET.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8")).replace(PLACEHOLDER_TARGET_ID,  URLEncoder.encode(targetId, "UTF-8"));
 		final String responseString = this.sendRequest(requestUrl, null, "DELETE"); 
 		return responseString!=null && responseString.isEmpty();
@@ -233,11 +279,12 @@ public class CloudManagerAPI {
 	 * @throws UnsupportedEncodingException in case utf-8 encoder is not possible in your JRE
 	 * @throws IOException thrown in case of network problems
 	 * @throws JSONException thrown in case server response is no valid JSON
+	 * @throws APIException thrown in case service responds with an error
 	 */
-	public boolean generateTargetCollection(final String tcId) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException {
+	public boolean generateTargetCollection(final String tcId) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException, APIException {
 		final String requestUrl = URL_GENERATE_TC.replace (PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8") );
-		final String responseString = this.sendRequest( requestUrl, null, "POST");
-		return responseString!=null && responseString.isEmpty();
+		this.sendRequest( requestUrl, null, "POST");
+		return true;
 	}
 	
 	/**
@@ -247,9 +294,9 @@ public class CloudManagerAPI {
 	 * requests, to be as independent as possible. Libraries like Apache
 	 * HttpComponents make it a lot easier to interact with HTTP connections.
 	 * 
-	 * @param urlStr
+	 * @param url
 	 *            The url to request
-	 * @param  body
+	 * @param  payload
 	 * 			  The JSONObject to send in body, set null if none should be used
 	 * @param method
 	 * 			  The http method to use ('GET', 'POST', 'DELETE')
@@ -261,56 +308,26 @@ public class CloudManagerAPI {
 	 *             and server.
 	 * @throws FileNotFoundException
 	 * 				thrown in case 404 is thrown
+	 * @throws JSONException 
+	 * @throws APIException 
 	 * 
 	 */
-	private String sendRequest(final String urlStr, final JSONObject body, final String method) throws IOException, FileNotFoundException {
-
-		BufferedReader reader = null;
-		OutputStreamWriter writer = null;
+	private String sendRequest(final String url, final JSONObject payload, final String method) throws IOException, FileNotFoundException, JSONException, APIException {
 
 		try {
 
-			// create the URL object from the endpoint
-			URL url = new URL(urlStr);
-
-			// open the connection
-			HttpURLConnection connection = (HttpURLConnection) url
-					.openConnection();
-
-			// use POST and configure the connection
-			connection.setRequestMethod(method);
-			connection.setDoInput(true);
-			connection.setDoOutput(true);
-			connection.setUseCaches(false);
-
-			// set the request headers
-			connection.setRequestProperty(HEADER_KEY_TOKEN, apiToken);
-			connection.setRequestProperty(HEADER_KEY_VERSION, "" + apiVersion);
+			HttpURLConnection connection = openConnection(url, method);
 			
 			// append JSON body, if set
-			if (body!=null) {
-				connection.setRequestProperty("Content-Type", "application/json");
-				connection.setRequestProperty("Content-Length",
-						String.valueOf(body.length()));
-
-				// construct the writer and write request
-				writer = new OutputStreamWriter(connection.getOutputStream());
-				writer.write(body.toString());
-				writer.flush();
+			if (payload != null) {
+				writePayload(connection, payload);
 			}
-
-			// listen on the server response
-			reader = new BufferedReader(new InputStreamReader(
-					connection.getInputStream()));
-
-			// construct the server response and return
-			StringBuilder sb = new StringBuilder();
-			for (String line; (line = reader.readLine()) != null;) {
-				sb.append(line);
+			
+			if ( isResponseStatusSuccess(connection)) {
+				return readResponse(connection);
+			} else {
+				throw readAPIException(connection);
 			}
-
-			// return the result
-			return sb.toString();
 
 		} catch (MalformedURLException e) {
 			// the URL we specified as end-point was not valid
@@ -324,21 +341,111 @@ public class CloudManagerAPI {
 					.println("The HTTP method is not valid.");
 			e.printStackTrace();
 			return null;
-		}  finally {
-			// close the reader and writer
-			try {
-				if (writer!=null) {
-					writer.close();
-				}
-			} catch (Exception e) {
-				// intentionally left blank
-			}
-			try {
-				reader.close();
-			} catch (Exception e) {
-				// intentionally left blank
-			}
 		}
 	}
 
+	private HttpURLConnection openConnection(final String urlStr, final String method) throws MalformedURLException, IOException, ProtocolException {
+		
+		// create the URL object from the endpoint
+		URL url = new URL(urlStr);
+
+		// open the connection
+		HttpURLConnection connection = (HttpURLConnection) url
+				.openConnection();
+
+		// use supplied method and configure the connection
+		connection.setRequestMethod(method);
+		connection.setDoInput(true);
+		connection.setDoOutput(true);
+		connection.setUseCaches(false);
+
+		// set the request headers
+		connection.setRequestProperty(HEADER_KEY_TOKEN, apiToken);
+		connection.setRequestProperty(HEADER_KEY_VERSION, "" + apiVersion);
+		
+		return connection;
+	}
+
+	private void writePayload(HttpURLConnection connection, final JSONObject payload) throws IOException {
+		OutputStreamWriter writer = null;
+		try {
+			final String contentLength = String.valueOf(payload.length());
+			connection.setRequestProperty("Content-Type", "application/json");
+			connection.setRequestProperty("Content-Length", contentLength);
+
+			// construct the writer and write request
+			writer = new OutputStreamWriter(connection.getOutputStream());
+			writer.write(payload.toString());
+			writer.flush();
+		} finally {
+			closeStream(writer);
+		}
+	}
+
+	private void closeStream(Closeable closeable) {
+		try {
+			if (closeable != null) {
+				closeable.close();
+			}
+		} catch (Exception e) {
+			// intentionally left blank
+		}
+	}
+
+	private boolean isResponseStatusSuccess(HttpURLConnection connection) throws IOException {
+		int statusCode = connection.getResponseCode();
+		boolean success = statusCode == HttpsURLConnection.HTTP_OK || statusCode == HttpsURLConnection.HTTP_ACCEPTED;
+		return success;
+	}
+
+	private String readResponse(HttpURLConnection connection) throws IOException {
+		String response = null;
+		if (hasResponseBody(connection)) {
+			response = readInput(connection);
+		}
+		return response;
+	}
+
+	private boolean hasResponseBody(HttpURLConnection connection) throws IOException {
+		int statusCode = connection.getResponseCode();
+		
+		return statusCode != HttpURLConnection.HTTP_ACCEPTED || statusCode != HttpURLConnection.HTTP_NO_CONTENT;
+	}
+
+	private String readInput(HttpURLConnection connection) throws IOException {
+		return readBody(connection.getInputStream());
+	}
+
+	private String readBody(InputStream inputStream) throws IOException {
+		BufferedReader reader = null;
+		String response = null;
+		try {
+			// listen on the server response
+			reader = new BufferedReader(new InputStreamReader(inputStream));
+			// construct the server response and return
+			StringBuilder sb = new StringBuilder();
+			for (String line; (line = reader.readLine()) != null;) {
+				sb.append(line);
+			}
+			response = sb.toString();
+		} finally {
+			closeStream(reader);
+		}
+		
+		return response;
+	}
+	
+	private APIException readAPIException(HttpURLConnection connection) throws IOException, JSONException {
+		final String strError = readError(connection);
+		final JSONObject error = new JSONObject(strError);
+		final int code = error.getInt("code");
+		final String reason = error.getString("reason");
+		final String message = error.getString("message");
+
+		return new APIException(code, reason, message);
+	}
+
+	private String readError(HttpURLConnection connection) throws IOException {
+		return readBody(connection.getErrorStream());
+	}
 }

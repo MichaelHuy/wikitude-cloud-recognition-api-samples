@@ -44,9 +44,6 @@ public class CloudManagerAPITest {
 			System.out.println("\nCREATED TARGET-COLLECTION:");
 			printTargetCollection(createdTargetCollection);
 			
-			// helper to hold information of last added target image
-			JSONObject lastAddedTarget = null;
-			
 			// add target to existing targetCollection
 			for (int i=0; i<EXAMPLE_IMAGE_URLS.length; i++) {
 				
