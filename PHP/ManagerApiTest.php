@@ -10,26 +10,29 @@ include('./ManagerAPI.php');
 $token = "<enter-your-token-here>";
 $api = new ManagerAPI($token, "2");
 
-// create a target colection with the name testTargetCollection 
-// and store the id which is of the target collection which is returned
-print "</br></br>CREATE TARGETCOLLECTION</br>";
-$tcResult = $api->createTargetCollection("testTargetCollection");
-print json_encode($tcResult);
-$tcId = $tcResult['id'];
+try {
+    // create a target colection with the name testTargetCollection
+    // and store the id which is of the target collection which is returned
+    print "</br></br>CREATE TARGETCOLLECTION</br>";
+    $tcResult = $api->createTargetCollection("testTargetCollection");
+    print json_encode($tcResult);
+    $tcId = $tcResult['id'];
 
-// add a target to the target collection which was created in the previous step
-print "</br></br>ADD TARGET</br>";
-$target = array(
-    "name" => "TC1",
-    "imageUrl" => "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg"
-);
-$newTargetResult = $api->addTarget($tcId, $target);
-print json_encode($newTargetResult);
+    // add a target to the target collection which was created in the previous step
+    print "</br></br>ADD TARGET</br>";
+    $target = array(
+        "name" => "TC1",
+        "imageUrl" => "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg"
+    );
+    $newTargetResult = $api->addTarget($tcId, $target);
+    print json_encode($newTargetResult);
 
-$targetId = $newTargetResult['id'];
+    $targetId = $newTargetResult['id'];
 
-// publish the target collection. After the target collection has been published it can be used for recognition
-print "</br></br>PUBLISH TARGETCOLLECTION</br>";
-print json_encode($api->generateTargetCollection($tcId));
-
+    // publish the target collection. After the target collection has been published it can be used for recognition
+    print "</br></br>PUBLISH TARGETCOLLECTION</br>";
+    print json_encode($api->generateTargetCollection($tcId));
+} catch( APIException $e) {
+    print $e;
+}
 ?>

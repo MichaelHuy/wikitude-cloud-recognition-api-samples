@@ -1,5 +1,19 @@
 <?php
 
+class APIException extends Exception {
+    private $reason = null;
+
+    public function __construct($code, $reason, $message) {
+        parent::__construct($message, $code);
+
+        $this->reason = $reason;
+    }
+
+    public function __toString() {
+        return "{$this->reason} ({$this->code}): {$this->message}";
+    }
+}
+
 /**
 * 
 */
@@ -47,27 +61,45 @@ class ManagerAPI
         // create uri
         $uri = $this->apiRoot . $path;
         
-        //configure the request
-        $options = array(
-            'http' => array(
-                'method' => $method,
-                'content' => ($payload == null ? '' : json_encode($payload)),
-                // 'ignore_errors' => '1',
-                'header'=>  "Content-Type: application/json\r\n" .
-                            "X-Version: " . $this->apiVersion . "\r\n" .
-                            "X-Token: " . $this->apiToken . "\r\n"
-            )
-        );
-
         //prepare the request
-        $context  = stream_context_create($options);
+        $curl = curl_init($uri);
 
-        $result = @file_get_contents($uri, false, $context);
+        //configure the request
+        curl_setopt_array($curl, array(
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_POSTFIELDS => ($payload == null ? '' : json_encode($payload)),
+            CURLOPT_HTTPHEADER => array(
+                "Content-Type: application/json",
+                "X-Version: " . $this->apiVersion,
+                "X-Token: " . $this->apiToken
+            ),
+            CURLOPT_RETURNTRANSFER => true
+        ));
+
+        $curl_response = curl_exec($curl);
+        $statusCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        if ($curl_response === false) {
+            $info = curl_getinfo($curl);
+            curl_close($curl);
+            die('error occured during curl exec. Additioanl info: ' . var_export($info));
+        }
+        curl_close($curl);
         //parse the result
-        $response = json_decode($result , true);
+        $response = json_decode($curl_response , true);
         
+        if ( !$this->isResponseStatusSuccess($statusCode) ) {
+          $code = $response["code"];
+          $reason = $response["reason"];
+          $message = $response["message"];
+          throw new APIException($code, $reason, $message);
+        }
+
         //return the response
         return $response;
+    }
+
+    private function isResponseStatusSuccess( $statusCode ) {
+        return $statusCode == 200 || $statusCode == 202;
     }
 
     /**
@@ -82,7 +114,7 @@ class ManagerAPI
 
     /**
      * Retrieve all created and active target collections
-     * @return Array containing JSONObjects of all taregtCollection that were created
+     * @return Array containing JSONObjects of all targetCollection that were created
      */
     public function getAllTargetCollections() {
         return $this->sendHttpRequest(null, 'GET', $this->PATH_ADD_TC);
@@ -117,7 +149,8 @@ class ManagerAPI
      */
     public function deleteTargetCollection($tcId) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TC);
-        return ($this->sendHttpRequest("", 'DELETE', $path) == null ? true : false);
+        $this->sendHttpRequest(null, 'DELETE', $path);
+        return true;
     }
 
     /**
@@ -172,7 +205,8 @@ class ManagerAPI
      */
     public function deleteTarget($tcId, $targetId) {
         $path = str_replace($this->PLACEHOLDER_TARGET_ID, $targetId, str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TARGET));
-        return ($this->sendHttpRequest(null, 'DELETE', $path) == null ? true : false);
+        $this->sendHttpRequest(null, 'DELETE', $path);
+        return true;
     }
 
     /***
@@ -182,16 +216,9 @@ class ManagerAPI
      */
     public function generateTargetCollection($tcId) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GENERATE_TC);
-        return $this->sendHttpRequest(null, 'POST', $path);
+        $this->sendHttpRequest(null, 'POST', $path);
+        return true;
     }
 }
 
 ?>
-
-
-
-
-
-
-
-
