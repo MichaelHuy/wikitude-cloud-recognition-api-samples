@@ -1,9 +1,19 @@
 <?php
 
 class APIException extends Exception {
+    public function __construct($message, $code) {
+        parent::__construct($message, $code);
+    }
+
+    public function __toString() {
+        return "{$this->code}: {$this->message}";
+    }
+}
+
+class ServiceException extends APIException {
     private $reason = null;
 
-    public function __construct($code, $reason, $message) {
+    public function __construct($message, $code, $reason) {
         parent::__construct($message, $code);
 
         $this->reason = $reason;
@@ -48,68 +58,13 @@ class ManagerAPI
     }
 
     /**
-     * Send the POST request to the Wikitude Cloud Targets API.
-     * 
-     * @param payload
-     *            the array which will be converted to a JSON object which will be posted into the body
-     * @param method
-     *            the HTTP-method which will be used when sending the request
-     * @param path
-     *            the path to the service which is defined in the private variables
-     */
-    private function sendHttpRequest($payload, $method, $path) {
-        // create uri
-        $uri = $this->apiRoot . $path;
-        
-        //prepare the request
-        $curl = curl_init($uri);
-
-        //configure the request
-        curl_setopt_array($curl, array(
-            CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_POSTFIELDS => ($payload == null ? '' : json_encode($payload)),
-            CURLOPT_HTTPHEADER => array(
-                "Content-Type: application/json",
-                "X-Version: " . $this->apiVersion,
-                "X-Token: " . $this->apiToken
-            ),
-            CURLOPT_RETURNTRANSFER => true
-        ));
-
-        $curl_response = curl_exec($curl);
-        $statusCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        if ($curl_response === false) {
-            $info = curl_getinfo($curl);
-            curl_close($curl);
-            die('error occured during curl exec. Additioanl info: ' . var_export($info));
-        }
-        curl_close($curl);
-        //parse the result
-        $response = json_decode($curl_response , true);
-        
-        if ( !$this->isResponseStatusSuccess($statusCode) ) {
-          $code = $response["code"];
-          $reason = $response["reason"];
-          $message = $response["message"];
-          throw new APIException($code, $reason, $message);
-        }
-
-        //return the response
-        return $response;
-    }
-
-    private function isResponseStatusSuccess( $statusCode ) {
-        return $statusCode == 200 || $statusCode == 202;
-    }
-
-    /**
      * Create target Collection with given name.
      * @param tcName target collection's name. Note that response contains an "id" attribute, which acts as unique identifier
      * @return array of the JSON representation of the created empty target collection
      */
     public function createTargetCollection($tcName) {
         $payload = array('name' => $tcName);
-        return $this->sendHttpRequest($payload, 'POST', $this->PATH_ADD_TC);
+        return $this->sendHttpRequest('POST', $this->PATH_ADD_TC, $payload);
     }
 
     /**
@@ -117,7 +72,7 @@ class ManagerAPI
      * @return Array containing JSONObjects of all targetCollection that were created
      */
     public function getAllTargetCollections() {
-        return $this->sendHttpRequest(null, 'GET', $this->PATH_ADD_TC);
+        return $this->sendHttpRequest('GET', $this->PATH_ADD_TC);
     }
 
     /**
@@ -129,7 +84,7 @@ class ManagerAPI
     public function renameTargetCollection($tcId, $tcName) {
         $payload = array('name' => $tcName);
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TC);
-        return $this->sendHttpRequest($payload, 'POST', $path);
+        return $this->sendHttpRequest('POST', $path,$payload);
     }
 
     /**
@@ -139,7 +94,7 @@ class ManagerAPI
      */
     public function getTargetCollection($tcId) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TC);
-        return $this->sendHttpRequest(null, 'GET', $path);
+        return $this->sendHttpRequest('GET', $path);
     }
 
     /**
@@ -149,7 +104,7 @@ class ManagerAPI
      */
     public function deleteTargetCollection($tcId) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TC);
-        $this->sendHttpRequest(null, 'DELETE', $path);
+        $this->sendHttpRequest('DELETE', $path);
         return true;
     }
 
@@ -160,7 +115,7 @@ class ManagerAPI
      */
     public function getAllTargets($tcId) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_ADD_TARGET);
-        return $this->sendHttpRequest(null, 'GET', $path);
+        return $this->sendHttpRequest('GET', $path);
     }
 
     /**
@@ -171,7 +126,7 @@ class ManagerAPI
      */
     public function addTarget($tcId, $target) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_ADD_TARGET);
-        return $this->sendHttpRequest($target, 'POST', $path);
+        return $this->sendHttpRequest('POST', $path, $target);
     }
 
     /**
@@ -182,7 +137,7 @@ class ManagerAPI
      */
     public function getTarget($tcId, $targetId) {
         $path = str_replace($this->PLACEHOLDER_TARGET_ID, $targetId, str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TARGET));
-        return $this->sendHttpRequest(null, 'GET', $path);
+        return $this->sendHttpRequest('GET', $path);
     }
 
     /**
@@ -194,7 +149,7 @@ class ManagerAPI
      */
     public function updateTarget($tcId, $targetId, $target) {
         $path = str_replace($this->PLACEHOLDER_TARGET_ID, $targetId, str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TARGET));
-        return $this->sendHttpRequest($target, 'POST', $path);
+        return $this->sendHttpRequest('POST', $path, $target);
     }
 
     /**
@@ -205,7 +160,7 @@ class ManagerAPI
      */
     public function deleteTarget($tcId, $targetId) {
         $path = str_replace($this->PLACEHOLDER_TARGET_ID, $targetId, str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TARGET));
-        $this->sendHttpRequest(null, 'DELETE', $path);
+        $this->sendHttpRequest('DELETE', $path);
         return true;
     }
 
@@ -216,8 +171,75 @@ class ManagerAPI
      */
     public function generateTargetCollection($tcId) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GENERATE_TC);
-        $this->sendHttpRequest(null, 'POST', $path);
+        $this->sendHttpRequest('POST', $path);
         return true;
+    }
+
+    /**
+     * Send the POST request to the Wikitude Cloud Targets API.
+     *
+     * @param method
+     *            the HTTP-method which will be used when sending the request
+     * @param path
+     *            the path to the service which is defined in the private variables
+     * @param payload
+     *            the array which will be converted to a JSON object which will be posted into the body
+     */
+    private function sendHttpRequest($method, $path, $payload = null) {
+        // create url
+        $url = $this->apiRoot . $path;
+
+        //prepare the request
+        $curl = $this->createRequest( $url, $method )
+
+        if ( $payload ) {
+            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($payload));
+        }
+
+        $curl_response = curl_exec($curl);
+        $info = curl_getinfo($curl);
+        $statusCode = $info["http_code"];
+        curl_close($curl);
+
+        if ($curl_response === false) {
+            throw new APIException("Unexpected Error", $statusCode);
+        } else {
+            //parse the result
+            $response = json_decode($curl_response , true);
+
+            if ( $this->isResponseStatusSuccess($statusCode) ) {
+                return $response;
+            } else {
+                throw readServiceException( $response );
+            }
+        }
+    }
+
+    private function createRequest( $url, $method ) {
+        $curl = curl_init($url);
+
+        //configure the request
+        curl_setopt_array($curl, array(
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_HTTPHEADER => array(
+                "Content-Type: application/json",
+                "X-Version: {$this->apiVersion}",
+                "X-Token: {$this->apiToken}"
+            ),
+            CURLOPT_RETURNTRANSFER => true
+        ));
+    }
+
+    private function isResponseStatusSuccess( $statusCode ) {
+        return $statusCode == 200 || $statusCode == 202;
+    }
+
+    private function readServiceException( $response ) {
+        $code = $response["code"];
+        $reason = $response["reason"];
+        $message = $response["message"];
+
+        return new ServiceException($message, $code, $reason);
     }
 }
 
