@@ -13,6 +13,8 @@ var apiToken = null;
 // The version of the API we will use
 var apiVersion = null;
 
+var pollDelay = 1000;
+
 // root url of the API
 var API_ENDPOINT_ROOT       = "api.wikitude.com";
 
@@ -47,13 +49,16 @@ module.exports = function (token, version) {
     apiVersion = version;
 
     /**
-    * Creates target collection with given name. Note: response contains unique 'id' attribute, which is required for any further modifications
-    * @param tcName name of target collection
-    * @param callback called once target collection was added ( callback(error, result) ), result is JSON Object of created target collection
-    */
-    this.createTargetCollection = function (tcName, callback) {
-        var payload = { 'name' : tcName };
-        sendHttpRequest(payload, 'POST', PATH_ADD_TC, callback);
+     * Creates target collection with given name. Note: response contains unique 'id' attribute, which is required for any further modifications
+     * @param name of target collection
+     * @returns {Promise}
+     *      resolved once target collection was added, value is JSON Object of created target collection
+     */
+    this.createTargetCollection = function (name) {
+        var path = PATH_ADD_TC;
+        var payload = { 'name' : name };
+
+        return request("POST", path, payload)
     };
 
     /**
@@ -94,13 +99,16 @@ module.exports = function (token, version) {
     };
 
     /**
-    * Adds target to existing target collectin. Note: You have to call generateTargetCollection to take changes into account
-    * @param tcId target collection's unique identifier ('id'-attribute)
-    * @param target JSONObject of taregtImages. Must contain 'name' and 'imageUrl' attribute
-    * @param callback called once target image was added ( callback(error, result) ), result is JSONObject of target ('id' is unique targetId)
-    */
-    this.addTarget = function (tcId, target, callback) {
-        sendHttpRequest(target, 'POST', PATH_ADD_TARGET.replace(PLACEHOLDER_TC_ID, tcId), callback);
+     * Adds target to existing target collectin. Note: You have to call generateTargetCollection to take changes into account
+     * @param tcId target collection's unique identifier ('id'-attribute)
+     * @param target JSONObject of taregtImages. Must contain 'name' and 'imageUrl' attribute
+     * @returns {Promise}
+     *      resolved once target image was added ( callback(error, result) ), result is JSONObject of target ('id' is unique targetId)
+     */
+    this.addTarget = function (tcId, target) {
+        var path = PATH_ADD_TARGET.replace(PLACEHOLDER_TC_ID, tcId);
+
+        return request('POST', path, target);
     };
 
     /**
@@ -135,12 +143,16 @@ module.exports = function (token, version) {
     };
 
     /**
-    * Generates target collection. Note: You must call this to put target image changes live. Before calling this target images are only marked ass added/removed internally
-    * @param tcId target collection's unique identifier ('id'-attribute)
-    * @param callback called once target collection was created ( callback(error, result) ), error and result are undefined in positive case. Note: Depending on the number of targetImages this operation may take from seconds to minutes
-    */
-    this.generateTargetCollection = function (tcId, callback) {
-        sendHttpRequest(null, 'POST', PATH_GENERATE_TC.replace(PLACEHOLDER_TC_ID, tcId), callback);
+     * Generates target collection. Note: You must call this to put target image changes live. Before calling this target images are only marked ass added/removed internally
+     * @param tcId target collection's unique identifier ('id'-attribute)
+     * @returns {Promise}
+     *      resolved once target collection was created for the result the service will be polled
+     *      Note: Depending on the number of targetImages this operation may take from seconds to minutes
+     */
+    this.generateTargetCollection = function (tcId) {
+        var path = PATH_GENERATE_TC.replace(PLACEHOLDER_TC_ID, tcId);
+
+        return request('POST', path)
     };
 };
 
@@ -168,6 +180,10 @@ function isJsonString(str) {
 function sendHttpRequest(payload, method, path, callback) {
 
     // The configuration of the request
+    var headers = {
+        'X-Version' : apiVersion,
+        'X-Token' : apiToken
+    };
     var request_options = {
         // We mainly use HTTPS connections to encrypt the data that is sent across the net. The rejectUnauthorized
         // property set to false avoids that the HTTPS request fails when the certificate authority is not in the
@@ -178,15 +194,14 @@ function sendHttpRequest(payload, method, path, callback) {
         hostname : API_ENDPOINT_ROOT,
         path : path,
         method : method,
-        headers : {
-            'X-Version' : apiVersion,
-            'X-Token' : apiToken
-        }
+        headers : headers
     };
+    var request_body;
 
     // set body content type to json, if set
     if (payload) {
-        request_options.headers['Content-Type'] = 'application/json';
+        headers['Content-Type'] = 'application/json';
+        request_body = JSON.stringify(payload);
     }
 
     // Create the request
@@ -218,7 +233,7 @@ function sendHttpRequest(payload, method, path, callback) {
     });
 
     // write to body
-    request.end(payload ? JSON.stringify(payload) : undefined);
+    request.end(request_body);
 }
 
 function isResponseStatusError(statusCode) {
@@ -239,4 +254,101 @@ function parseResponse(response, callback) {
                 callback(JSON.parse(responseBody));
             }
         });
+}
+
+/**
+ *
+ * @param method
+ * @param path
+ * @param [payload]
+ * @returns {Promise}
+ */
+function request( method, path, payload) {
+    return new Promise(( fulfil, reject ) => {
+        var headers = {
+            'X-Version' : apiVersion,
+            'X-Token' : apiToken
+        };
+        var options = {
+            // We mainly use HTTPS connections to encrypt the data that is sent across the net. The rejectUnauthorized
+            // property set to false avoids that the HTTPS request fails when the certificate authority is not in the
+            // certificate store. If you do not want to ignore unauthorized HTTPS connections, you need to add the HTTPS
+            // certificate of the api.wikitude.com server to the certificate store and make it accessible in Node.js.
+            // Otherwise, you need to use a http connection instead.
+            rejectUnauthorized : false,
+            hostname : API_ENDPOINT_ROOT,
+            path : path,
+            method : method,
+            headers : headers
+        };
+        var body;
+
+        // set body content type to json, if set
+        if (payload) {
+            headers['Content-Type'] = 'application/json';
+            body = JSON.stringify(payload);
+        }
+
+        // Create the request
+        var request = https.request(options, fulfil);
+
+        // On error, we call the callback with the error parameter and the error data
+        request.on('error', reject);
+
+        // write to body
+        request.end(body);
+    });
+}
+
+/**
+ *
+ * @param response
+ */
+function readResponse( response ) {
+    response.setEncoding('utf8');
+
+    var statusCode = response.statusCode;
+
+    if ( statusCode === CODE_NO_CONTENT ) {
+        return;
+    } else if ( statusCode === CODE_ACCEPTED ) {
+        return readProgress( response );
+    } else if ( statusCode === CODE_OK ) {
+        return readJsonBody( response )
+    } else {
+        return readError( response)
+    }
+}
+
+function readProgress( response ) {
+    var location = response.headers['Location'];
+
+    return poll(location);
+}
+
+function poll( location ) {
+    return Promise.resolve();
+}
+
+function readJsonBody( response ) {
+    return readBody(response).then(JSON.parse);
+}
+
+function readBody( response ) {
+    return new Promise( fulfil => {
+        var body = "";
+
+        response
+            .on('data', data => {
+                body += data;
+            })
+            .on('end', () => fulfil(body))
+        ;
+    });
+}
+
+function readError( response ) {
+    var json = readJsonBody(response);
+
+    throw new Error( json.message );
 }

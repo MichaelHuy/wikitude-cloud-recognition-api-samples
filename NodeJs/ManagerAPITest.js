@@ -7,57 +7,43 @@
  * @author Wikitude
  */
 
- var token = '<enter-your-token-here>';
+var token = '<enter-your-token-here>';
 
- var express = require('express');
- var app = express();
+var ManagerApi = require('./ManagerAPI.js');
 
-// tests Wikitude TargetApi usage
-app.get('/testTargetApi', function(req, res) {
-    var ManagerApi = require('./ManagerAPI.js');
+// create API using own token and version
+var api = new ManagerApi(token, 2);
 
-    // create API using own token and version
-    var api = new ManagerApi(token, 2);
-
-    // function called once target collection was created
-    var testTargetCollection = function(createdTargetCollection) {
+// create target collection and write JSON of target collection to response
+api.createTargetCollection()
+    .then(createdTargetCollection => {
+        var targetCollectionId = createdTargetCollection.id;
 
         // create new target, generate target collection, receive all meta information and delete complete target collection
-        var imageUrlNewTarget = "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg";
+        var imageUrl = "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg";
+        var name = "myTarget1";
 
-        // 1) Add a target image to the collection (Note this happens in parallel to the previous deletion test)
-        api.addTarget(createdTargetCollection.id, {'name': 'myTarget1', 'imageUrl': imageUrlNewTarget}, function(err, createdTarget) {
-            if (err) {
-                console.log("ERROR OCCURRED: " + err);
-                return;
-            }
-            console.log("id of created target: " + createdTarget.id);
-
+        return (
+            // 1) Add a target image to the collection (Note this happens in parallel to the previous deletion test)
+            api.addTarget(targetCollectionId, { name, imageUrl })
+            .then(target => {
+                console.log(`id of created target: ${target.id}`);
+            })
             // 2) generate target collection
-            api.generateTargetCollection(createdTargetCollection.id, function(err, result) {
-                if (err) {
-                    console.log("ERROR OCCURRED: " + err);
-                    return;
-                }
-                console.log("generated targetCollection " + createdTargetCollection.id);
-            });
-        });
-    };
-
-    // create target collection and write JSON of target collection to response
-    api.createTargetCollection('firstOne', function(err, result) {
-        if (err) {
-            res.status(500);
-            res.send();
-        } else {
-            testTargetCollection(result);
-            res.json(result);
-            res.status(200);
-        }
-    });
-
-});
-
-var server = app.listen(3000, function () { 
-    console.log('Example app listening now');
-});
+            .then(() => api.generateTargetCollection(targetCollectionId))
+            .then(() => {
+                console.log(`generated cloud archive for targetCollection: ${targetCollectionId}`);
+            })
+            .then(() => createdTargetCollection)
+        );
+    })
+    .then(createdTargetCollection => {
+        res.status(200);
+        res.json(createdTargetCollection)
+    })
+    .catch(error => {
+        console.log("ERROR OCCURRED: ", error);
+        res.status(500);
+        res.send();
+    })
+;
