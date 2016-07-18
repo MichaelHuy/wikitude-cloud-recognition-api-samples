@@ -14,36 +14,44 @@ var ManagerApi = require('./ManagerAPI.js');
 // create API using own token and version
 var api = new ManagerApi(token, 2);
 
-// create target collection and write JSON of target collection to response
-api.createTargetCollection()
+// create target collection
+api.createTargetCollection("targetCollection")
     .then(createdTargetCollection => {
         var targetCollectionId = createdTargetCollection.id;
+        console.log(`created targetCollection: ${targetCollectionId}`);
 
-        // create new target, generate target collection, receive all meta information and delete complete target collection
-        var imageUrl = "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg";
-        var name = "myTarget1";
-
-        return (
-            // 1) Add a target image to the collection (Note this happens in parallel to the previous deletion test)
-            api.addTarget(targetCollectionId, { name, imageUrl })
-            .then(target => {
-                console.log(`id of created target: ${target.id}`);
+        return ( Promise.resolve()
+            // rename targetCollection
+            .then(() => api.renameTargetCollection(targetCollectionId, "renamed targetCollection"))
+            .then(targetCollection => {
+                console.log(`renamed targetCollection: ${targetCollection.id}`);
             })
-            // 2) generate target collection
-            .then(() => api.generateTargetCollection(targetCollectionId))
+
+            // Add a target image to the collection (Note this happens in parallel to the previous deletion test)
             .then(() => {
-                console.log(`generated cloud archive for targetCollection: ${targetCollectionId}`);
+                var imageUrl = "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg";
+                var name = "myTarget1";
+
+                return api.addTarget(targetCollectionId, {name, imageUrl})
             })
-            .then(() => createdTargetCollection)
+            .then(target => {
+                console.log(`created target: ${target.id}`);
+            })
+
+            // generate target collection
+            .then(() => api.generateTargetCollection(targetCollectionId))
+            .then(archive => {
+                console.log(`generated cloud archive: ${archive.id}`);
+            })
+
+            // clean up and delete targetCollection
+            .then(() => api.deleteTargetCollection(targetCollectionId))
+            .then(() => {
+                console.log(`removed targetCollection: ${targetCollectionId}`);
+            })
         );
     })
-    .then(createdTargetCollection => {
-        res.status(200);
-        res.json(createdTargetCollection)
-    })
     .catch(error => {
-        console.log("ERROR OCCURRED: ", error);
-        res.status(500);
-        res.send();
+        console.error("ERROR OCCURRED:", error.message, error);
     })
 ;
