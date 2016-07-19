@@ -190,7 +190,7 @@ class ManagerAPI
         $url = $this->apiRoot . $path;
 
         //prepare the request
-        $curl = $this->createRequest( $url, $method )
+        $curl = $this->createRequest( $url, $method );
 
         if ( $payload ) {
             curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($payload));
@@ -228,6 +228,8 @@ class ManagerAPI
             ),
             CURLOPT_RETURNTRANSFER => true
         ));
+
+        return $curl;
     }
 
     private function isResponseStatusSuccess( $statusCode ) {
