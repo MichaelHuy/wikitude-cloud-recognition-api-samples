@@ -14,6 +14,11 @@ var ManagerApi = require('./ManagerAPI.js');
 // create API using own token and version
 var api = new ManagerApi(token, 2);
 
+var EXAMPLE_IMAGE_URLS = [
+    "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg",
+    "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg"
+];
+
 // create target collection
 api.createTargetCollection("targetCollection")
     .then(createdTargetCollection => {
@@ -29,13 +34,15 @@ api.createTargetCollection("targetCollection")
 
             // Add a target image to the collection (Note this happens in parallel to the previous deletion test)
             .then(() => {
-                var imageUrl = "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg";
-                var name = "myTarget1";
+                var targets = [
+                    { name: "myTarget0", imageUrl: EXAMPLE_IMAGE_URLS[0] },
+                    { name: "myTarget1", imageUrl: EXAMPLE_IMAGE_URLS[1] }
+                ];
 
-                return api.addTarget(targetCollectionId, {name, imageUrl})
+                return api.addTargets(targetCollectionId, targets)
             })
-            .then(target => {
-                console.log(`created target: ${target.id}`);
+            .then(() => {
+                console.log(`created targets`);
             })
 
             // generate target collection

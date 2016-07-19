@@ -44,24 +44,27 @@ public class CloudManagerAPITest {
 			System.out.println("\nCREATED TARGET-COLLECTION:");
 			printTargetCollection(createdTargetCollection);
 			
-			// add target to existing targetCollection
+			final JSONArray targets = new JSONArray();
+			// add multiple targets at once to existing targetCollection
 			for (int i=0; i<EXAMPLE_IMAGE_URLS.length; i++) {
 				
 				// create target image JSON with basic information
 				final JSONObject newTarget = new JSONObject();
 				newTarget.put("name", "target_" + i);
 				newTarget.put("imageUrl", EXAMPLE_IMAGE_URLS[i]);
-				
-				final JSONObject updatedTargetCollectionWithNewTarget = api.addTarget(currentTcId, newTarget);
-				System.out.println("\n\nADDED TARGET #" + i +" to tc " + currentTcId);
-				printTarget(updatedTargetCollectionWithNewTarget);
+				targets.put(newTarget);
 			}
-			
+			final JSONObject addedTargets = api.addTargets(currentTcId, targets);
+			System.out.println("\n\nADDED TARGETs to tc " + currentTcId);
+			System.out.println(addedTargets.toString());
+
 			// generate target collection for using its targets in productive Client API
 			System.out.println("\n\nGENERATING TARGET COLLECTION " + currentTcId);
-			final boolean generatedTargetCollection = api.generateTargetCollection(currentTcId);
-			System.out.println(" - " + (generatedTargetCollection ? "OK" : "NG"));
+			final JSONObject generatedTargetCollection = api.generateTargetCollection(currentTcId);
+			System.out.println("CREATED CLOUD-ARCHIVE: " + generatedTargetCollection.getString("id"));
 			
+			// clean up
+			api.deleteTargetCollection(currentTcId);
 		} catch (final Exception e) {
 			System.out.println("Unexpected exception occurred '" + e.getMessage() + "'");
 			e.printStackTrace();
@@ -88,8 +91,8 @@ public class CloudManagerAPITest {
 	 */
 	private static void printTarget(final JSONObject target) throws JSONException {
 		System.out.println("________________________");
-		System.out.println(" - target name:    " + target.getString("name"));
 		System.out.println(" - target id:      " + target.getString("id"));
+		System.out.println(" - target name:    " + target.getString("name"));
 		System.out.println("________________________");
 	}
 

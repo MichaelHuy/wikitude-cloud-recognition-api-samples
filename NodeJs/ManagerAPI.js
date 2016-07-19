@@ -29,6 +29,7 @@ var PATH_ADD_TC      = "/cloudrecognition/targetCollection";
 var PATH_GET_TC      = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID;
 var PATH_GENERATE_TC = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/generation/cloudarchive";
 var PATH_ADD_TARGET  = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target";
+var PATH_ADD_TARGETS = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/targets";
 var PATH_GET_TARGET  = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target/" + PLACEHOLDER_TARGET_ID;
 
 // status codes as returned by the api
@@ -129,6 +130,31 @@ module.exports = function (token, version, pollInterval) {
     };
 
     /**
+     * Adds targets to existing target collectin. Note: You have to call generateTargetCollection to take changes into account
+     * @param tcId target collection's unique identifier ('id'-attribute)
+     * @param targets Array of JSONObjects of targetImages. Must contain 'name' and 'imageUrl' attribute
+     * @returns {Promise}
+     *      resolved once target image was added, result is JSONObject of target ('id' is unique targetId)
+     */
+    this.addTargets = function (tcId, targets) {
+        var path = PATH_ADD_TARGETS.replace(PLACEHOLDER_TC_ID, tcId);
+
+        return (
+            fetch('POST', path, targets)
+                .then(response => {
+                    if (response.statusCode === HTTP_OK) {
+                        return (readJsonBody(response)
+                                .then(progress => delay(progress.estimatedLatency))
+                                .then(() => readProgress(response))
+                        );
+                    } else {
+                        return readError(response);
+                    }
+                })
+        );
+    };
+
+    /**
     * Receive existing target image's information
     * @param tcId target collection's unique identifier ('id'-attribute)
     * @param targetId target's unique identifier ('id'-attribute)
@@ -195,10 +221,11 @@ module.exports = function (token, version, pollInterval) {
  *            resolved once operation finished
  */
 function sendRequest(method, path, payload) {
-    return fetch(path, method, payload).then(readResponse);
+    return fetch(method, path, payload).then(readResponse);
 }
 
-function fetch(path, method, payload) {
+function fetch(method, path, payload) {
+    console.log("sendRequest", method, path, payload);
     return new Promise((fulfil, reject) => {
         var headers = {
             'X-Version': apiVersion,
@@ -240,18 +267,16 @@ function fetch(path, method, payload) {
  * @param response
  */
 function readResponse( response ) {
-    response.setEncoding('utf8');
-
     var statusCode = response.statusCode;
 
-    if ( statusCode === HTTP_NO_CONTENT ) {
+    if (statusCode === HTTP_NO_CONTENT) {
         return true;
-    } else if ( statusCode === HTTP_ACCEPTED ) {
-        return readProgress( response );
-    } else if ( statusCode === HTTP_OK ) {
-        return readJsonBody( response )
+    } else if (statusCode === HTTP_ACCEPTED) {
+        return readProgress(response);
+    } else if (statusCode === HTTP_OK) {
+        return readJsonBody(response)
     } else {
-        return readError( response)
+        return readError(response)
     }
 }
 
@@ -265,10 +290,10 @@ function poll( location ) {
     return delay(apiPollInterval)
         .then(sendRequest.bind(this, "GET", location))
         .then(progress => {
-            if ( progress.status === "RUNNING") {
-                return poll(location);
-            } else {
+            if ( progress.status === "COMPLETED") {
                 return progress;
+            } else {
+                return poll(location);
             }
         });
 }
@@ -280,10 +305,21 @@ function delay(time) {
 }
 
 function readJsonBody( response ) {
-    return readBody(response).then(JSON.parse);
+    var body = readBody(response);
+    body.then(console.log.bind(console, "body"));
+
+    return body.then(body => {
+        try {
+            return JSON.parse(body);
+        } catch (error) {
+            throw new Error(body)
+        }
+    });
 }
 
 function readBody( response ) {
+    response.setEncoding('utf8');
+
     return new Promise( (fulfil, reject) => {
         var body = "";
 

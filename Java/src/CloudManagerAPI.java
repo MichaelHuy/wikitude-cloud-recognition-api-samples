@@ -21,7 +21,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-
 /**
  * TargetsAPI shows a simple example how to interact with the Wikitude Cloud
  * Targets API.
@@ -78,6 +77,7 @@ public class CloudManagerAPI {
 	// how to do that can be found at
 	// https://blogs.oracle.com/gc/entry/unable_to_find_valid_certification
 	private static final String API_ENDPOINT_ROOT = "https://api.wikitude.com";
+	private static final int API_DEFAULT_POLL_INTERVAL = 1000;
 	
 	private static final String PLACEHOLDER_TC_ID 		= "${TC_ID}";
 	private static final String PLACEHOLDER_TARGET_ID 	= "${TARGET_ID}";
@@ -87,16 +87,20 @@ public class CloudManagerAPI {
 	private static final String URL_GENERATE_TC = API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/generation/cloudarchive";
 	
 	private static final String URL_ADD_TARGET 	= API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target";
+	private static final String URL_ADD_TARGETS	= API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/targets";
 	private static final String URL_GET_TARGET 	= API_ENDPOINT_ROOT + "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target/" + PLACEHOLDER_TARGET_ID;
 	
 	private static final String HEADER_KEY_TOKEN = "X-Token";
 	private static final String HEADER_KEY_VERSION = "X-Version";
 	
+	private static final String COMPLETED = "COMPLETED";
 
 	// The token to use when connecting to the endpoint
 	private final String apiToken;
 	// The version of the API we will use
 	private final int apiVersion;
+	// The interval used to poll asynchronous endpoints
+	private final int apiPollInterval;
 
 	/**
 	 * Creates a new TargetsAPI object that offers the service to interact with
@@ -108,8 +112,24 @@ public class CloudManagerAPI {
 	 *            The version of the API we will use
 	 */
 	public CloudManagerAPI(String token, int version) {
+		this(token, version, API_DEFAULT_POLL_INTERVAL);
+	}
+
+	/**
+	 * Creates a new TargetsAPI object that offers the service to interact with
+	 * the Wikitude Cloud Targets API.
+	 * 
+	 * @param token
+	 *            The token to use when connecting to the endpoint
+	 * @param version
+	 *            The version of the API we will use
+	 * @param pollInterval
+	 *            The interval for polling asynchronous endpoints
+	 */
+	public CloudManagerAPI(String token, int version, int pollInterval) {
 		this.apiToken = token;
 		this.apiVersion = version;
+		this.apiPollInterval = pollInterval;
 	}
 
 	/**
@@ -215,7 +235,24 @@ public class CloudManagerAPI {
 	public JSONObject addTarget(final String tcId, final JSONObject target) throws IOException, JSONException, APIException {
 		final String requestUrl = URL_ADD_TARGET.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8"));
 		final String responseString = this.sendRequest(requestUrl, target, "POST");
-		System.out.println("responseString: " + responseString);
+
+		return new JSONObject(responseString);
+	}
+	
+	/**
+	 * adds a target to an existing target collection
+	 * @param tcId
+	 * @param targets JSON representation of targets, e.g. {"name" : "foo", "imageUrl": "http://myserver.com/path/img.jpg"}
+	 * @return JSON representation of created target (includes unique "id"-attribute)
+	 * @throws IOException thrown in case of network problems
+	 * @throws JSONException thrown in case server response is no valid JSON
+	 * @throws APIException thrown in case service responds with an error
+	 * @throws InterruptedException 
+	 */
+	public JSONObject addTargets(final String tcId, final JSONArray targets) throws IOException, JSONException, APIException, InterruptedException {
+		final String requestUrl = URL_ADD_TARGETS.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8"));
+		final String responseString = this.sendAsyncRequest(requestUrl, targets, "POST");
+
 		return new JSONObject(responseString);
 	}
 	
@@ -267,8 +304,9 @@ public class CloudManagerAPI {
 	 */
 	public boolean deleteTarget(final String tcId, final String targetId) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException, APIException {
 		final String requestUrl = URL_GET_TARGET.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8")).replace(PLACEHOLDER_TARGET_ID,  URLEncoder.encode(targetId, "UTF-8"));
-		final String responseString = this.sendRequest(requestUrl, null, "DELETE"); 
-		return responseString!=null && responseString.isEmpty();
+		this.sendRequest(requestUrl, null, "DELETE");
+		
+		return true;
 	}
 	
 	/***
@@ -280,11 +318,12 @@ public class CloudManagerAPI {
 	 * @throws IOException thrown in case of network problems
 	 * @throws JSONException thrown in case server response is no valid JSON
 	 * @throws APIException thrown in case service responds with an error
+	 * @throws InterruptedException 
 	 */
-	public boolean generateTargetCollection(final String tcId) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException, APIException {
+	public JSONObject generateTargetCollection(final String tcId) throws FileNotFoundException, UnsupportedEncodingException, IOException, JSONException, APIException, InterruptedException {
 		final String requestUrl = URL_GENERATE_TC.replace (PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8") );
-		this.sendRequest( requestUrl, null, "POST");
-		return true;
+
+		return new JSONObject(sendAsyncRequest(requestUrl, "POST"));
 	}
 	
 	/**
@@ -313,9 +352,7 @@ public class CloudManagerAPI {
 	 * 
 	 */
 	private String sendRequest(final String url, final JSONObject payload, final String method) throws IOException, FileNotFoundException, JSONException, APIException {
-
 		try {
-
 			HttpURLConnection connection = openConnection(url, method);
 			
 			// append JSON body, if set
@@ -367,6 +404,10 @@ public class CloudManagerAPI {
 	}
 
 	private void writePayload(HttpURLConnection connection, final JSONObject payload) throws IOException {
+		writePayload(connection, payload.toString());
+	}
+
+	private void writePayload(HttpURLConnection connection, final String payload) throws IOException {
 		OutputStreamWriter writer = null;
 		try {
 			final String contentLength = String.valueOf(payload.length());
@@ -375,7 +416,8 @@ public class CloudManagerAPI {
 
 			// construct the writer and write request
 			writer = new OutputStreamWriter(connection.getOutputStream());
-			writer.write(payload.toString());
+			writer.write(payload);
+			System.out.println("payload: " + payload);
 			writer.flush();
 		} finally {
 			closeStream(writer);
@@ -447,5 +489,85 @@ public class CloudManagerAPI {
 
 	private String readError(HttpURLConnection connection) throws IOException {
 		return readBody(connection.getErrorStream());
+	}
+	
+	private String sendAsyncRequest(final String url, final JSONObject payload, final String method) throws IOException, FileNotFoundException, JSONException, APIException, InterruptedException {
+		return sendAsyncRequest(url, payload.toString(), method);
+	}
+	
+	private String sendAsyncRequest(final String url, final JSONArray payload, final String method) throws IOException, FileNotFoundException, JSONException, APIException, InterruptedException {
+		return sendAsyncRequest(url, payload.toString(), method);
+	}
+
+	private String sendAsyncRequest(final String url, final String payload, final String method) throws IOException, FileNotFoundException, JSONException, APIException, InterruptedException {
+		try {
+			HttpURLConnection connection = openConnection(url, method);
+			
+			// append JSON body, if set
+			if (payload != null) {
+				writePayload(connection, payload);
+			}
+			
+			if (isResponseStatusSuccess(connection)) {
+				return readProgress(connection);
+			} else {
+				throw readAPIException(connection);
+			}
+
+		} catch (MalformedURLException e) {
+			// the URL we specified as end-point was not valid
+			System.err.println("The URL is not a valid URL");
+			e.printStackTrace();
+			return null;
+		} catch (ProtocolException e) {
+			// this should not happen, it means that we specified a wrong
+			// protocol
+			System.err
+					.println("The HTTP method is not valid.");
+			e.printStackTrace();
+			return null;
+		}
+	}
+
+
+	private String sendAsyncRequest(final String url, final String method) throws IOException, FileNotFoundException, JSONException, APIException, InterruptedException {
+		try {
+			HttpURLConnection connection = openConnection(url, method);
+			
+			if (isResponseStatusSuccess(connection)) {
+				return readProgress(connection);
+			} else {
+				throw readAPIException(connection);
+			}
+
+		} catch (MalformedURLException e) {
+			// the URL we specified as end-point was not valid
+			System.err.println("The URL is not a valid URL");
+			e.printStackTrace();
+			return null;
+		} catch (ProtocolException e) {
+			// this should not happen, it means that we specified a wrong
+			// protocol
+			System.err
+					.println("The HTTP method is not valid.");
+			e.printStackTrace();
+			return null;
+		}
+	}
+	private String readProgress(HttpURLConnection connection) throws FileNotFoundException, InterruptedException, JSONException, IOException, APIException {
+		String location = API_ENDPOINT_ROOT + connection.getHeaderField("Location");
+		return poll( location );
+	}
+	
+	private String poll(String location) throws InterruptedException, FileNotFoundException, JSONException, IOException, APIException {
+		JSONObject progress;
+		String response;
+		do {
+			Thread.sleep(apiPollInterval);
+			response = sendRequest(location, null, "GET");
+			progress = new JSONObject(response);
+		} while( !COMPLETED.equals(progress.getString("status")));
+		
+		return response;
 	}
 }
