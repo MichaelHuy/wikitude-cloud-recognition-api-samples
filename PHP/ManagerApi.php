@@ -25,22 +25,27 @@ class ServiceException extends APIException {
 }
 
 /**
-* 
-*/
+ *
+ */
 class ManagerAPI
 {
     // the API host live
-    private $API_HOST = 'https://api.wikitude.com/cloudrecognition';
+    private $API_HOST = 'https://api.wikitude.com';
 
     private $PLACEHOLDER_TC_ID       = '${TC_ID}';
     private $PLACEHOLDER_TARGET_ID   = '${TARGET_ID}';
 
-    private $PATH_ADD_TC      = '/targetCollection';
-    private $PATH_GET_TC      = '/targetCollection/${TC_ID}';
-    private $PATH_GENERATE_TC = '/targetCollection/${TC_ID}/generation/cloudarchive';
+    private $PATH_ADD_TC      = '/cloudrecognition/targetCollection';
+    private $PATH_GET_TC      = '/cloudrecognition/targetCollection/${TC_ID}';
+    private $PATH_GENERATE_TC = '/cloudrecognition/targetCollection/${TC_ID}/generation/cloudarchive';
     
-    private $PATH_ADD_TARGET  = '/targetCollection/${TC_ID}/target';
-    private $PATH_GET_TARGET  = '/targetCollection/${TC_ID}/target/${TARGET_ID}';
+    private $PATH_ADD_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target';
+    private $PATH_ADD_TARGETS = '/cloudrecognition/targetCollection/${TC_ID}/targets';
+    private $PATH_GET_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target/${TARGET_ID}';
+
+    private $HTTP_OK         = 200;
+    private $HTTP_ACCEPTED   = 202;
+    private $HTTP_NO_CONTENT = 204;
 
     // Your API key
     private $token = null;
@@ -48,18 +53,26 @@ class ManagerAPI
     private $version = null;
     // Current API host (stage/live)
     private $apiRoot = null;
+    // interval used to poll status of asynchronous operations
+    private $pollInterval = null;
 
-    // Constructor
-    function __construct($token, $version){
+    /**
+     * ManagerAPI constructor.
+     * @param string $token Your API key
+     * @param string $version of the API we will use
+     * @param int $pollInterval in milliseconds used to poll status of asynchronous operations
+     */
+    function __construct($token, $version = "2", $pollInterval = 10000){
         //initialize the values
-        $this->apiToken = $token;
-        $this->apiVersion = $version;
+        $this->token = $token;
+        $this->version = $version;
         $this->apiRoot = $this->API_HOST;
+        $this->pollInterval = $pollInterval;
     }
 
     /**
      * Create target Collection with given name.
-     * @param tcName target collection's name. Note that response contains an "id" attribute, which acts as unique identifier
+     * @param string $tcName of the target collection. Note that response contains an "id" attribute, which acts as unique identifier
      * @return array of the JSON representation of the created empty target collection
      */
     public function createTargetCollection($tcName) {
@@ -69,7 +82,7 @@ class ManagerAPI
 
     /**
      * Retrieve all created and active target collections
-     * @return Array containing JSONObjects of all targetCollection that were created
+     * @return array containing JSONObjects of all targetCollection that were created
      */
     public function getAllTargetCollections() {
         return $this->sendHttpRequest('GET', $this->PATH_ADD_TC);
@@ -77,9 +90,9 @@ class ManagerAPI
 
     /**
      * Rename existing target collection
-     * @param tcId id of target collection
-     * @param tcName new name to use for this target collection
-     * @return the updated JSON representation as an array of the modified target collection
+     * @param string $tcId id of target collection
+     * @param string $tcName new name to use for this target collection
+     * @return array the updated JSON representation as an array of the modified target collection
      */
     public function renameTargetCollection($tcId, $tcName) {
         $payload = array('name' => $tcName);
@@ -89,7 +102,7 @@ class ManagerAPI
 
     /**
      * Receive JSON representation of existing target collection (without making any modifications)
-     * @param tcId id of the target collection
+     * @param string $tcId id of the target collection
      * @return array of the JSON representation of target collection
      */
     public function getTargetCollection($tcId) {
@@ -99,7 +112,7 @@ class ManagerAPI
 
     /**
      * deletes existing target collection by id (NOT name)
-     * @param tcId id of target collection
+     * @param string $tcId id of target collection
      * @return true on successful deletion, false otherwise
      */
     public function deleteTargetCollection($tcId) {
@@ -110,7 +123,7 @@ class ManagerAPI
 
     /**
      * retrieve all targets from a target collection by id (NOT name)
-     * @param tcId id of target collection
+     * @param string $tcId id of target collection
      * @return array of all targets of the requested target collection
      */
     public function getAllTargets($tcId) {
@@ -120,8 +133,8 @@ class ManagerAPI
 
     /**
      * adds a target to an existing target collection
-     * @param tcId
-     * @param target array representation of target, e.g. array("name" => "TC1","imageUrl" => "http://myurl.com/image.jpeg");
+     * @param string $tcId id of the target collection to add target to
+     * @param array $target array representation of target, e.g. array("name" => "TC1","imageUrl" => "http://myurl.com/image.jpeg");
      * @return array representation of created target (includes unique "id"-attribute)
      */
     public function addTarget($tcId, $target) {
@@ -130,10 +143,21 @@ class ManagerAPI
     }
 
     /**
+     * adds multiple targets to an existing target collection
+     * @param string $tcId id of the target collection to add targets to
+     * @param array $targets array of targets
+     * @return array representation of created target (includes unique "id"-attribute)
+     */
+    public function addTargets($tcId, $targets) {
+        $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_ADD_TARGETS);
+        return $this->sendAsyncRequest('POST', $path, $targets);
+    }
+
+    /**
      * Get target JSON of existing targetId and targetCollectionId
-     * @param tcId id of target collection
-     * @param targetId id of target
-     * @return JSON representation of target as an array
+     * @param string $tcId id of target collection
+     * @param string $targetId id of target
+     * @return array JSON representation of target as an array
      */
     public function getTarget($tcId, $targetId) {
         $path = str_replace($this->PLACEHOLDER_TARGET_ID, $targetId, str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TARGET));
@@ -142,10 +166,10 @@ class ManagerAPI
 
     /**
      * Update target JSON properties of existing targetId and targetCollectionId
-     * @param tcId id of target collection
-     * @param targetId id of target
-     * @param target JSON representation of the target's properties that shall be updated, e.g. { "physicalHeight": 200 }
-     * @return JSON representation of target as an array
+     * @param string $tcId id of target collection
+     * @param string $targetId id of target
+     * @param string $target JSON representation of the target's properties that shall be updated, e.g. { "physicalHeight": 200 }
+     * @return array JSON representation of target as an array
      */
     public function updateTarget($tcId, $targetId, $target) {
         $path = str_replace($this->PLACEHOLDER_TARGET_ID, $targetId, str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TARGET));
@@ -154,8 +178,8 @@ class ManagerAPI
 
     /**
      * Delete existing target from a collection
-     * @param tcId id of target collection
-     * @param targetId id of target
+     * @param string $tcId id of target collection
+     * @param string $targetId id of target
      * @return true after successful deletion
      */
     public function deleteTarget($tcId, $targetId) {
@@ -165,14 +189,14 @@ class ManagerAPI
     }
 
     /***
-     * Gives command to start generation of given target collection. Note: Added targets will only be analized after generation.
-     * @param tcId id of target collection
-     * @return true on successful generation start. It will not wait until the generation is finished. The generation will take some time, depending on the amount of targets that have to be generated
+     * Gives command to start generation of given target collection. Note: Added targets will only be analyzed after generation.
+     * @param string $tcId id of target collection
+     * @return true on successful generation start. It will not wait until the generation is finished. The generation
+     *      will take some time, depending on the amount of targets that have to be generated
      */
     public function generateTargetCollection($tcId) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GENERATE_TC);
-        $this->sendHttpRequest('POST', $path);
-        return true;
+        return $this->sendAsyncRequest('POST', $path);
     }
 
     /**
@@ -184,64 +208,165 @@ class ManagerAPI
      *            the path to the service which is defined in the private variables
      * @param payload
      *            the array which will be converted to a JSON object which will be posted into the body
+     * @return array|null
      */
     private function sendHttpRequest($method, $path, $payload = null) {
+        $response = $this->sendAPIRequest($method, $path, $payload);
+
+        return $this->readJsonBody($response);
+    }
+
+    private function sendAPIRequest($method, $path, $payload = null) {
         // create url
         $url = $this->apiRoot . $path;
 
         //prepare the request
-        $curl = $this->createRequest( $url, $method );
+        $headers = array(
+            "Content-Type: application/json",
+            "X-Version: {$this->version}",
+            "X-Token: {$this->token}"
+        );
 
+        $data = null;
         if ( $payload ) {
-            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($payload));
+            $data = json_encode($payload);
         }
 
-        $curl_response = curl_exec($curl);
-        $info = curl_getinfo($curl);
-        $statusCode = $info["http_code"];
-        curl_close($curl);
+        $response = $this->request($url, $method, $headers, $data);
 
-        if ($curl_response === false) {
-            throw new APIException("Unexpected Error", $statusCode);
+        if ($response["body"] === false) {
+            throw new APIException("Unexpected Error", $response["code"]);
         } else {
-            //parse the result
-            $response = json_decode($curl_response , true);
-
-            if ( $this->isResponseStatusSuccess($statusCode) ) {
+            if ( $this->isResponseSuccess($response) ) {
                 return $response;
             } else {
-                throw readServiceException( $response );
+                throw $this->readAPIException( $response );
             }
         }
     }
 
-    private function createRequest( $url, $method ) {
+    private function request($url, $method, $headers, $data = null) {
+        //prepare the request
         $curl = curl_init($url);
+
+        $responseHeaders = array();
+        $addHeaderLine = function ( $curl, $line ) use (&$responseHeaders) {
+            list($name, $value) = explode(": ", $line, 2);
+            $value = trim($value, "\n\r");
+            if ( $value ) {
+                $responseHeaders[$name] = $value;
+            }
+
+            return strlen($line);
+        };
 
         //configure the request
         curl_setopt_array($curl, array(
             CURLOPT_CUSTOMREQUEST => $method,
-            CURLOPT_HTTPHEADER => array(
-                "Content-Type: application/json",
-                "X-Version: {$this->apiVersion}",
-                "X-Token: {$this->apiToken}"
-            ),
-            CURLOPT_RETURNTRANSFER => true
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HEADERFUNCTION => $addHeaderLine
         ));
 
-        return $curl;
+        if ( $data ) {
+            curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
+        }
+
+        $body = curl_exec($curl);
+        $info = curl_getinfo($curl);
+        curl_close($curl);
+
+        $code = $info["http_code"];
+
+        return array(
+            "code" => $code,
+            "headers" => $responseHeaders,
+            "body" => $body
+        );
     }
 
-    private function isResponseStatusSuccess( $statusCode ) {
-        return $statusCode == 200 || $statusCode == 202;
+    private function isResponseSuccess( $response ) {
+        $code = $response["code"];
+
+        return $code == $this->HTTP_OK || $code == $this->HTTP_ACCEPTED || $code == $this->HTTP_NO_CONTENT;
+    }
+
+    private function readAPIException( $response ) {
+        if ( $this->hasJsonContent( $response ) ) {
+            return $this->readServiceException($response);
+        } else {
+            return $this->readGeneralException($response);
+        }
+    }
+
+    private function hasJsonContent( $response ) {
+        $headers = $response["headers"];
+        $contentType = $headers["Content-Type"];
+        $contentLength = $headers["Content-Length"];
+
+        return $contentType == "application/json" && $contentLength != "0";
     }
 
     private function readServiceException( $response ) {
-        $code = $response["code"];
-        $reason = $response["reason"];
-        $message = $response["message"];
+        $json = $this->readJsonBody($response);
+        $code = $json["code"];
+        $reason = $json["reason"];
+        $message = $json["message"];
 
         return new ServiceException($message, $code, $reason);
+    }
+
+    private function readJsonBody($response) {
+        return json_decode($response["body"], true);
+    }
+
+    private function readGeneralException( $response ) {
+        $code = $response["code"];
+        $message = $response["body"];
+
+        return new APIException($message, $code);
+    }
+
+    private function sendAsyncRequest($method, $path, $payload = null) {
+        $response = $this->sendAPIRequest($method, $path, $payload);
+        $location = $this->getLocation($response);
+
+        if ( $this->hasJsonContent($response) ) {
+            $status = $this->readJsonBody($response);
+            $estimatedLatency = $status["estimatedLatency"];
+            $this->wait($estimatedLatency);
+        }
+
+        return $this->pollStatus($location);
+    }
+
+    private function getLocation($response) {
+        return $response["headers"]["Location"];
+    }
+
+    private function wait($milliseconds) {
+        $microseconds = $milliseconds * 1000;
+        usleep($microseconds);
+    }
+
+    private function pollStatus($location) {
+        $status = null;
+        do {
+            $this->wait($this->pollInterval);
+            $status = $this->readStatus($location);
+        } while( $this->isNotCompleted($status) );
+
+        return $status;
+    }
+
+    private function readStatus($location) {
+        $response = $this->sendAPIRequest('GET', $location);
+
+        return $this->readJsonBody($response);
+    }
+
+    private function isNotCompleted($status) {
+        return $status["status"] != "COMPLETED";
     }
 }
 
