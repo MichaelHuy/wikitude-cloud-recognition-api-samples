@@ -3,10 +3,20 @@ require 'net/http'
 require 'json'
 
 class APIError < StandardError
-  def initialize(code, reason, message)
-    @code = code
-    @reason = reason
+  def initialize(message, code)
     @message = message
+    @code = code
+  end
+
+  def to_s
+    return "(#{@code}): #{@message}"
+  end
+end
+
+class ServiceError < APIError
+  def initialize(message, code, reason)
+    super(message, code)
+    @reason = reason
   end
 
   def to_s
@@ -31,70 +41,25 @@ class ManagerAPI
   @@PATH_GENERATE_TC = '/cloudrecognition/targetCollection/${TC_ID}/generation/cloudarchive'
 
   @@PATH_ADD_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target'
+  @@PATH_ADD_TARGETS = '/cloudrecognition/targetCollection/${TC_ID}/targets'
   @@PATH_GET_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target/${TARGET_ID}'
 
   @@CONTENT_TYPE_JSON = 'application/json'
 
+  HTTP_OK         = '200'
+  HTTP_ACCEPTED   = '202'
+  HTTP_NO_CONTENT = '204'
+
   # Creates a new TargetsAPI object that offers the service to interact with the Wikitude Cloud Targets API.
   # @param token: The token to use when connecting to the endpoint
   # @param version: The version of the API we will use
-  def initialize(token, version)
+  # @param pollInterval: interval to used for polling the status of asynchronous operations
+  def initialize(token, version, pollInterval = 10000)
     # The token to use when connecting to the endpoint
     @token = token
     # The version of the API we will use
     @version = version
-  end
-  
-  private
-  def sendHttpRequest(payload, method, path)
-    url = @@API_ENDPOINT + path;
-    uri = URI(url)
-    
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = true
-
-    if method.upcase == "GET"
-      req = Net::HTTP::Get.new(uri.path)
-    elsif method.upcase == "POST"
-      req = Net::HTTP::Post.new(uri.path)
-    elsif method.upcase == "DELETE"
-      req = Net::HTTP::Delete.new(uri.path)
-    else
-      req = Net::HTTP::Post.new(uri.path)
-    end
-    
-    req["Content-Type"] = @@CONTENT_TYPE_JSON
-    req["X-Token"] = @token
-    req["X-Version"] = @version
-
-    # prepare the body payload
-    if payload != nil
-      req.body = payload.to_json
-    end
-
-    #send the request
-    response = http.start { |http| http.request(req) }
-
-    jsonResponse = nil
-    if hasJsonContent(response)
-      jsonResponse = JSON.parse(response.body);
-    end
-
-    if isResponseSuccess(response)
-      return jsonResponse
-    else
-      raise APIError.new(jsonResponse["code"], jsonResponse["reason"], jsonResponse["message"])
-    end
-  end
-
-  def hasJsonContent(res)
-    contentType = res['Content-Type']
-    contentLength = res['Content-Length']
-    return contentType == @@CONTENT_TYPE_JSON && contentLength != "0"
-  end
-
-  def isResponseSuccess(res)
-    return res.code == "200" || res.code == "202"
+    @pollInterval = pollInterval
   end
 
   public
@@ -104,13 +69,13 @@ class ManagerAPI
   # @return array of the JSON representation of the created empty target collection
   def createTargetCollection(tcName)
     payload = { 'name' => tcName }
-    return sendHttpRequest(payload, "POST", @@PATH_ADD_TC)
+    return sendHttpRequest(payload, 'POST', @@PATH_ADD_TC)
   end
 
   # Retrieve all created and active target collections
   # @return Array containing JSONObjects of all taregtCollection that were created
   def getAllTargetCollections()
-    return sendHttpRequest(nil, "GET", @@PATH_ADD_TC)
+    return sendHttpRequest(nil, 'GET', @@PATH_ADD_TC)
   end
 
   # Rename existing target collection
@@ -121,7 +86,7 @@ class ManagerAPI
     payload = { 'name' => tcName }
     path = @@PATH_GET_TC.dup
     path[@@PLACEHOLDER_TC_ID] = tcId
-    return sendHttpRequest(payload, "POST", path)
+    return sendHttpRequest(payload, 'POST', path)
   end
 
    # Receive JSON representation of existing target collection (without making any modifications)
@@ -130,7 +95,7 @@ class ManagerAPI
   def getTargetCollection(tcId)
     path = @@PATH_GET_TC.dup
     path[@@PLACEHOLDER_TC_ID] = tcId
-    return sendHttpRequest(nil, "POST", path)
+    return sendHttpRequest(nil, 'POST', path)
   end
 
   # deletes existing target collection by id (NOT name)
@@ -139,7 +104,7 @@ class ManagerAPI
   def deleteTargetCollection(tcId)
     path = @@PATH_GET_TC.dup
     path[@@PLACEHOLDER_TC_ID] = tcId
-    result = sendHttpRequest(nil, "DELETE", path)
+    result = sendHttpRequest(nil, 'DELETE', path)
     if result == nil
       ret = true
     else
@@ -154,17 +119,27 @@ class ManagerAPI
   def getAllTargets(tcId)
     path = @@PATH_ADD_TARGET.dup
     path[@@PLACEHOLDER_TC_ID] = tcId
-    return sendHttpRequest(nil, "GET", path)
+    return sendHttpRequest(nil, 'GET', path)
   end
 
   # adds a target to an existing target collection
   # @param tcId
-  # @param target array representation of target, e.g. array("name" => "TC1","imageUrl" => "http://myurl.com/image.jpeg");
+  # @param target array representation of target, e.g. array("name" => "TC1","imageUrl" => "http://myurl.com/image.jpeg")
   # @return array representation of created target (includes unique "id"-attribute)
   def addTarget(tcId, target)
     path = @@PATH_ADD_TARGET.dup
     path[@@PLACEHOLDER_TC_ID] = tcId
-    return sendHttpRequest(target, "POST", path)
+    return sendHttpRequest(target, 'POST', path)
+  end
+
+  # adds multiple targets to an existing target collection
+  # @param tcId
+  # @param targets array representation of targets, e.g. array(array("name" => "TC1","imageUrl" => "http://myurl.com/image.jpeg"))
+  # @return array representation of created target (includes unique "id"-attribute)
+  def addTargets(tcId, targets)
+    path = @@PATH_ADD_TARGETS.dup
+    path[@@PLACEHOLDER_TC_ID] = tcId
+    return sendAsyncRequest('POST', path, targets)
   end
 
   # Get target JSON of existing targetId and targetCollectionId
@@ -175,7 +150,7 @@ class ManagerAPI
     path = @@PATH_GET_TARGET.dup
     path[@@PLACEHOLDER_TC_ID] = tcId
     path[@@PLACEHOLDER_TARGET_ID] = targetId
-    return sendHttpRequest(nil, "GET", path)
+    return sendHttpRequest(nil, 'GET', path)
   end
 
   # Update target JSON properties of existing targetId and targetCollectionId
@@ -187,7 +162,7 @@ class ManagerAPI
     path = @@PATH_GET_TARGET.dup
     path[@@PLACEHOLDER_TC_ID] = tcId
     path[@@PLACEHOLDER_TARGET_ID] = targetId
-    return sendHttpRequest(target, "POST", path)
+    return sendHttpRequest(target, 'POST', path)
   end
 
   # Delete existing target from a collection
@@ -198,7 +173,7 @@ class ManagerAPI
     path = @@PATH_GET_TARGET.dup
     path[@@PLACEHOLDER_TC_ID] = tcId
     path[@@PLACEHOLDER_TARGET_ID] = targetId
-    sendHttpRequest(nil, "DELETE", path)
+    sendHttpRequest(nil, 'DELETE', path)
     return true
   end
 
@@ -208,7 +183,135 @@ class ManagerAPI
   def generateTargetCollection(tcId)
     path = @@PATH_GENERATE_TC.dup
     path[@@PLACEHOLDER_TC_ID] = tcId
-    sendHttpRequest(nil, "POST", path)
-    return true
+    return sendAsyncRequest('POST', path)
+  end
+
+  private
+  def sendHttpRequest(payload, method, path)
+    response = sendAPIRequest(method,path,payload)
+
+    jsonResponse = nil
+    if hasJsonContent(response)
+      jsonResponse = readJsonBody(response)
+    end
+
+    return jsonResponse
+  end
+
+  def sendAPIRequest(method, path, payload = nil)
+    url = @@API_ENDPOINT + path
+    uri = URI(url)
+
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+
+    if method.upcase == 'GET'
+      request = Net::HTTP::Get.new(uri.path)
+    elsif method.upcase == 'POST'
+      request = Net::HTTP::Post.new(uri.path)
+    elsif method.upcase == 'DELETE'
+      request = Net::HTTP::Delete.new(uri.path)
+    else
+      request = Net::HTTP::Post.new(uri.path)
+    end
+
+    request['Content-Type'] = @@CONTENT_TYPE_JSON
+    request['X-Token'] = @token
+    request['X-Version'] = @version
+
+    # prepare the body payload
+    if payload != nil
+      request.body = payload.to_json
+    end
+
+    #send the request
+    response = http.start { |http| http.request(request) }
+
+    if isResponseSuccess(response)
+      return response
+    else
+      raise readAPIError(response)
+    end
+  end
+
+  def readAPIError(response)
+    if hasJsonContent(response)
+      return readServiceError(response)
+    else
+      return readGeneralError(response)
+    end
+  end
+
+  def hasJsonContent(response)
+    contentType = response['Content-Type']
+    contentLength = response['Content-Length']
+    return contentType == @@CONTENT_TYPE_JSON && contentLength != '0'
+  end
+
+  def readServiceError(response)
+      error = readJsonBody(response)
+      message = error['message']
+      code = error['code']
+      reason = error['reason']
+
+      return ServiceError.new(message, code, reason)
+  end
+
+  def readJsonBody(response)
+    return JSON.parse(response.body)
+  end
+
+  def readGeneralError(response)
+    message = response.body
+    code = response.code
+
+    return APIError.new(message, code)
+  end
+
+  def isResponseSuccess(response)
+    code = response.code
+    return code == HTTP_OK || code == HTTP_ACCEPTED || code == HTTP_NO_CONTENT
+  end
+
+  def sendAsyncRequest(method, path, payload = nil)
+    response = sendAPIRequest(method, path, payload)
+    location = getLocation(response)
+    initialDelay = @pollInterval
+    if hasJsonContent(response)
+      status = readJsonBody(response)
+      initialDelay = status['estimatedLatency']
+    end
+
+    wait(initialDelay)
+
+    return pollLocation(location)
+  end
+
+  def getLocation(response)
+    return response['Location']
+  end
+
+  def wait(milliseconds)
+    seconds = milliseconds / 1000
+    sleep(seconds)
+  end
+
+  def pollLocation(location)
+    loop do
+      status = readStatus(location)
+      if isCompleted(status)
+        return status
+      end
+      wait(@pollInterval)
+    end
+  end
+
+  def readStatus(location)
+    response = sendAPIRequest('GET', location)
+    return readJsonBody(response)
+  end
+
+  def isCompleted(status)
+    return status['status'] == 'COMPLETED'
   end
 end
