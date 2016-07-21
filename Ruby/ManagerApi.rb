@@ -31,20 +31,20 @@ end
 class ManagerAPI
 
   # The endpoint where the Wikitude Cloud Targets API resides.
-  @@API_ENDPOINT = 'https://api.wikitude.com'
+  API_ENDPOINT = 'https://api.wikitude.com'
 
-  @@PLACEHOLDER_TC_ID       = '${TC_ID}'
-  @@PLACEHOLDER_TARGET_ID   = '${TARGET_ID}'
+  PLACEHOLDER_TC_ID       = '${TC_ID}'
+  PLACEHOLDER_TARGET_ID   = '${TARGET_ID}'
 
-  @@PATH_ADD_TC      = '/cloudrecognition/targetCollection'
-  @@PATH_GET_TC      = '/cloudrecognition/targetCollection/${TC_ID}'
-  @@PATH_GENERATE_TC = '/cloudrecognition/targetCollection/${TC_ID}/generation/cloudarchive'
+  PATH_ADD_TC      = '/cloudrecognition/targetCollection'
+  PATH_GET_TC      = '/cloudrecognition/targetCollection/${TC_ID}'
+  PATH_GENERATE_TC = '/cloudrecognition/targetCollection/${TC_ID}/generation/cloudarchive'
 
-  @@PATH_ADD_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target'
-  @@PATH_ADD_TARGETS = '/cloudrecognition/targetCollection/${TC_ID}/targets'
-  @@PATH_GET_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target/${TARGET_ID}'
+  PATH_ADD_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target'
+  PATH_ADD_TARGETS = '/cloudrecognition/targetCollection/${TC_ID}/targets'
+  PATH_GET_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target/${TARGET_ID}'
 
-  @@CONTENT_TYPE_JSON = 'application/json'
+  CONTENT_TYPE_JSON = 'application/json'
 
   HTTP_OK         = '200'
   HTTP_ACCEPTED   = '202'
@@ -68,14 +68,14 @@ class ManagerAPI
   # tribute, which acts as unique identifier
   # @return array of the JSON representation of the created empty target collection
   def createTargetCollection(tcName)
-    payload = { 'name' => tcName }
-    return sendHttpRequest(payload, 'POST', @@PATH_ADD_TC)
+    payload = { :name => tcName }
+    return sendHttpRequest(payload, 'POST', PATH_ADD_TC)
   end
 
   # Retrieve all created and active target collections
-  # @return Array containing JSONObjects of all taregtCollection that were created
-  def getAllTargetCollections()
-    return sendHttpRequest(nil, 'GET', @@PATH_ADD_TC)
+  # @return Array containing JSONObjects of all targetCollection that were created
+  def getAllTargetCollections
+    return sendHttpRequest(nil, 'GET', PATH_ADD_TC)
   end
 
   # Rename existing target collection
@@ -83,9 +83,9 @@ class ManagerAPI
   # @param tcName new name to use for this target collection
   # @return the updated JSON representation as an array of the modified target collection
   def renameTargetCollection(tcId, tcName)
-    payload = { 'name' => tcName }
-    path = @@PATH_GET_TC.dup
-    path[@@PLACEHOLDER_TC_ID] = tcId
+    payload = { :name => tcName }
+    path = PATH_GET_TC.dup
+    path[PLACEHOLDER_TC_ID] = tcId
     return sendHttpRequest(payload, 'POST', path)
   end
 
@@ -93,8 +93,8 @@ class ManagerAPI
   # @param tcId id of the target collection
   # @return array of the JSON representation of target collection
   def getTargetCollection(tcId)
-    path = @@PATH_GET_TC.dup
-    path[@@PLACEHOLDER_TC_ID] = tcId
+    path = PATH_GET_TC.dup
+    path[PLACEHOLDER_TC_ID] = tcId
     return sendHttpRequest(nil, 'POST', path)
   end
 
@@ -102,8 +102,8 @@ class ManagerAPI
   # @param tcId id of target collection
   # @return true on successful deletion, false otherwise
   def deleteTargetCollection(tcId)
-    path = @@PATH_GET_TC.dup
-    path[@@PLACEHOLDER_TC_ID] = tcId
+    path = PATH_GET_TC.dup
+    path[PLACEHOLDER_TC_ID] = tcId
     result = sendHttpRequest(nil, 'DELETE', path)
     if result == nil
       ret = true
@@ -117,8 +117,8 @@ class ManagerAPI
   # @param tcId id of target collection
   # @return array of all targets of the requested target collection
   def getAllTargets(tcId)
-    path = @@PATH_ADD_TARGET.dup
-    path[@@PLACEHOLDER_TC_ID] = tcId
+    path = PATH_ADD_TARGET.dup
+    path[PLACEHOLDER_TC_ID] = tcId
     return sendHttpRequest(nil, 'GET', path)
   end
 
@@ -127,8 +127,8 @@ class ManagerAPI
   # @param target array representation of target, e.g. array("name" => "TC1","imageUrl" => "http://myurl.com/image.jpeg")
   # @return array representation of created target (includes unique "id"-attribute)
   def addTarget(tcId, target)
-    path = @@PATH_ADD_TARGET.dup
-    path[@@PLACEHOLDER_TC_ID] = tcId
+    path = PATH_ADD_TARGET.dup
+    path[PLACEHOLDER_TC_ID] = tcId
     return sendHttpRequest(target, 'POST', path)
   end
 
@@ -137,8 +137,8 @@ class ManagerAPI
   # @param targets array representation of targets, e.g. array(array("name" => "TC1","imageUrl" => "http://myurl.com/image.jpeg"))
   # @return array representation of created target (includes unique "id"-attribute)
   def addTargets(tcId, targets)
-    path = @@PATH_ADD_TARGETS.dup
-    path[@@PLACEHOLDER_TC_ID] = tcId
+    path = PATH_ADD_TARGETS.dup
+    path[PLACEHOLDER_TC_ID] = tcId
     return sendAsyncRequest('POST', path, targets)
   end
 
@@ -147,9 +147,9 @@ class ManagerAPI
   # @param targetId id of target
   # @return JSON representation of target as an array
   def getTarget(tcId, targetId)
-    path = @@PATH_GET_TARGET.dup
-    path[@@PLACEHOLDER_TC_ID] = tcId
-    path[@@PLACEHOLDER_TARGET_ID] = targetId
+    path = PATH_GET_TARGET.dup
+    path[PLACEHOLDER_TC_ID] = tcId
+    path[PLACEHOLDER_TARGET_ID] = targetId
     return sendHttpRequest(nil, 'GET', path)
   end
 
@@ -159,9 +159,9 @@ class ManagerAPI
   # @param target JSON representation of the target's properties that shall be updated, e.g. { "physicalHeight": 200 }
   # @return JSON representation of target as an array
   def updateTarget(tcId, targetId, target)
-    path = @@PATH_GET_TARGET.dup
-    path[@@PLACEHOLDER_TC_ID] = tcId
-    path[@@PLACEHOLDER_TARGET_ID] = targetId
+    path = PATH_GET_TARGET.dup
+    path[PLACEHOLDER_TC_ID] = tcId
+    path[PLACEHOLDER_TARGET_ID] = targetId
     return sendHttpRequest(target, 'POST', path)
   end
 
@@ -170,19 +170,19 @@ class ManagerAPI
   # @param targetId id of target
   # @return true after successful deletion
   def deleteTarget(tcId, targetId)
-    path = @@PATH_GET_TARGET.dup
-    path[@@PLACEHOLDER_TC_ID] = tcId
-    path[@@PLACEHOLDER_TARGET_ID] = targetId
+    path = PATH_GET_TARGET.dup
+    path[PLACEHOLDER_TC_ID] = tcId
+    path[PLACEHOLDER_TARGET_ID] = targetId
     sendHttpRequest(nil, 'DELETE', path)
     return true
   end
 
-  # Gives command to start generation of given target collection. Note: Added targets will only be analized after generation.
+  # Gives command to start generation of given target collection. Note: Added targets will only be analyzed after generation.
   # @param tcId id of target collection
   # @return true on successful generation start. It will not wait until the generation is finished. The generation will take some time, depending on the amount of targets that have to be generated
   def generateTargetCollection(tcId)
-    path = @@PATH_GENERATE_TC.dup
-    path[@@PLACEHOLDER_TC_ID] = tcId
+    path = PATH_GENERATE_TC.dup
+    path[PLACEHOLDER_TC_ID] = tcId
     return sendAsyncRequest('POST', path)
   end
 
@@ -199,7 +199,7 @@ class ManagerAPI
   end
 
   def sendAPIRequest(method, path, payload = nil)
-    url = @@API_ENDPOINT + path
+    url = API_ENDPOINT + path
     uri = URI(url)
 
     http = Net::HTTP.new(uri.host, uri.port)
@@ -215,7 +215,7 @@ class ManagerAPI
       request = Net::HTTP::Post.new(uri.path)
     end
 
-    request['Content-Type'] = @@CONTENT_TYPE_JSON
+    request['Content-Type'] = CONTENT_TYPE_JSON
     request['X-Token'] = @token
     request['X-Version'] = @version
 
@@ -225,7 +225,7 @@ class ManagerAPI
     end
 
     #send the request
-    response = http.start { |http| http.request(request) }
+    response = http.start { |client| client.request(request) }
 
     if isResponseSuccess(response)
       return response
@@ -245,7 +245,7 @@ class ManagerAPI
   def hasJsonContent(response)
     contentType = response['Content-Type']
     contentLength = response['Content-Length']
-    return contentType == @@CONTENT_TYPE_JSON && contentLength != '0'
+    return contentType == CONTENT_TYPE_JSON && contentLength != '0'
   end
 
   def readServiceError(response)

@@ -13,7 +13,7 @@ API_VERSION = 2
 api = ManagerAPI.new(API_TOKEN, API_VERSION)
 
 begin
-  # create a target colection with the name myTestTC
+  # create a target collection with the name myTestTC
   # and store the id which is of the target collection which is returned
   tcName = 'myTestTC'
   puts "\n\nCREATE TARGETCOLLECTION:\n"
@@ -24,17 +24,19 @@ begin
   # add a target to the target collection which was created in the previous step
   puts "\n\nADD TARGET:\n"
   target = {
-      'name' => 'TC1',
-      'imageUrl' => 'http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg'
+      :name => 'TC1',
+      :imageUrl => 'http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg'
   }
   puts api.addTarget(tcId, target)
 
   # add multiple targets to the target collection
   puts "\n\nADD TARGETS:\n"
-  targets = [{
-      'name' => 'TC2',
-      'imageUrl' => 'http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg'
-  }]
+  targets = [
+      {
+          :name => 'TC2',
+          :imageUrl => 'http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg'
+      }
+  ]
   puts api.addTargets(tcId, targets)
 
   # publish the target collection. After the target collection has been published it can be used for recognition
