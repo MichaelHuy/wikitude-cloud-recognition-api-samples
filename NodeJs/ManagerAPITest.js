@@ -31,20 +31,33 @@ api.createTargetCollection("targetCollection")
                 console.log(`renamed targetCollection: ${targetCollection.id}`);
             })
 
-            // Add a target image to the collection (Note this happens in parallel to the previous deletion test)
+            // Add multiple target images to the collection (Note this happens in parallel to the previous deletion test)
+            .then(() => {
+                var target = { name: "myTarget0", imageUrl: EXAMPLE_IMAGE_URLS[0] };
+
+                return api.addTarget(targetCollectionId, target)
+            })
+            .then(target => {
+                console.log(`created target ${target.id}`);
+            })
+
+
+            // Add multiple target images to the collection (Note this happens in parallel to the previous deletion test)
             .then(() => {
                 var targets = [
-                    { name: "myTarget0", imageUrl: EXAMPLE_IMAGE_URLS[0] },
                     { name: "myTarget1", imageUrl: EXAMPLE_IMAGE_URLS[1] }
                 ];
 
                 return api.addTargets(targetCollectionId, targets)
             })
-            .then(() => {
-                console.log(`created targets`);
+            .then(status => {
+                console.log(`created targets, generation id: ${status.generationId}`);
             })
 
             // generate target collection
+            .then(() => {
+                console.log(`PUBLISH TARGET COLLECTION`);
+            })
             .then(() => api.generateTargetCollection(targetCollectionId))
             .then(archive => {
                 console.log(`generated cloud archive: ${archive.id}`);

@@ -6,6 +6,7 @@
  * @author Wikitude
  * 
  */
+"use strict";
 var https = require('https');
 
 // Your API key
@@ -18,7 +19,7 @@ var apiPollInterval = null;
 // root url of the API
 var API_ENDPOINT_ROOT       = "api.wikitude.com";
 
-var DEFAULT_POLL_INTERVAL   = 1000;
+var DEFAULT_POLL_INTERVAL   = 10000;
 
 // placeholders used for url-generation
 var PLACEHOLDER_TC_ID       = "${TC_ID}";
@@ -32,10 +33,34 @@ var PATH_ADD_TARGET  = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID
 var PATH_ADD_TARGETS = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/targets";
 var PATH_GET_TARGET  = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target/" + PLACEHOLDER_TARGET_ID;
 
+var CONTENT_TYPE_JSON = "application/json";
+
 // status codes as returned by the api
 var HTTP_OK         = 200;
 var HTTP_ACCEPTED   = 202;
 var HTTP_NO_CONTENT = 204;
+
+class APIError extends Error {
+    constructor(message, code) {
+        super(message);
+        this.code = code;
+    }
+
+    toString() {
+        return `(${this.code}): ${this.message}`;
+    }
+}
+
+class ServiceError extends APIError {
+    constructor(message, code, reason) {
+        super(message, code);
+        this.reason = reason;
+    }
+
+    toString() {
+        return `${this.reason} (${this.code}): ${this.message}`;
+    }
+}
 
 /**
  * Creates a new TargetsAPI object that offers the service to interact with the Wikitude Cloud Targets API.
@@ -44,7 +69,7 @@ var HTTP_NO_CONTENT = 204;
  *            The token to use when connecting to the endpoint
  * @param version
  *            The version of the API we will use
- * @param [pollInterval=1000]
+ * @param [pollInterval=10000]
  *            The interval used for polling asynchronous requests
  */
 module.exports = function (token, version, pollInterval) {
@@ -68,12 +93,12 @@ module.exports = function (token, version, pollInterval) {
     };
 
     /**
-    * Renames given target collection
-    * @param tcId target collection's unique identifier ('id'-attribute)
-    * @param name new name
-    * @returns {Promise}
+     * Renames given target collection
+     * @param tcId target collection's unique identifier ('id'-attribute)
+     * @param name new name
+     * @returns {Promise}
      *      resolved once target collection was updated, result is JSON Object of updated target collection
-    */
+     */
     this.renameTargetCollection = function (tcId, name) {
         var path = PATH_GET_TC.replace(PLACEHOLDER_TC_ID, tcId);
         var payload = {name};
@@ -82,10 +107,10 @@ module.exports = function (token, version, pollInterval) {
     };
 
     /**
-    * Returns all target collection of current user (uses header's token informatino, no additional information required)
-    * @returns {Promise}
+     * Returns all target collection of current user (uses header's token information, no additional information required)
+     * @returns {Promise}
      *      resolved once target collections' information is available, result is JSONArray of target collection JSONObjects
-    */
+     */
     this.getAllTargetCollections = function() {
         var path = PATH_ADD_TC;
 
@@ -117,9 +142,9 @@ module.exports = function (token, version, pollInterval) {
     };
 
     /**
-     * Adds target to existing target collectin. Note: You have to call generateTargetCollection to take changes into account
+     * Adds target to existing target collection. Note: You have to call generateTargetCollection to take changes into account
      * @param tcId target collection's unique identifier ('id'-attribute)
-     * @param target JSONObject of taregtImages. Must contain 'name' and 'imageUrl' attribute
+     * @param target JSONObject of targetImages. Must contain 'name' and 'imageUrl' attribute
      * @returns {Promise}
      *      resolved once target image was added, result is JSONObject of target ('id' is unique targetId)
      */
@@ -130,7 +155,7 @@ module.exports = function (token, version, pollInterval) {
     };
 
     /**
-     * Adds targets to existing target collectin. Note: You have to call generateTargetCollection to take changes into account
+     * Adds targets to existing target collection. Note: You have to call generateTargetCollection to take changes into account
      * @param tcId target collection's unique identifier ('id'-attribute)
      * @param targets Array of JSONObjects of targetImages. Must contain 'name' and 'imageUrl' attribute
      * @returns {Promise}
@@ -139,19 +164,7 @@ module.exports = function (token, version, pollInterval) {
     this.addTargets = function (tcId, targets) {
         var path = PATH_ADD_TARGETS.replace(PLACEHOLDER_TC_ID, tcId);
 
-        return (
-            fetch('POST', path, targets)
-                .then(response => {
-                    if (response.statusCode === HTTP_OK) {
-                        return (readJsonBody(response)
-                                .then(progress => delay(progress.estimatedLatency))
-                                .then(() => readProgress(response))
-                        );
-                    } else {
-                        return readError(response);
-                    }
-                })
-        );
+        return sendAsyncRequest('POST', path, targets);
     };
 
     /**
@@ -204,7 +217,7 @@ module.exports = function (token, version, pollInterval) {
     this.generateTargetCollection = function (tcId) {
         var path = PATH_GENERATE_TC.replace(PLACEHOLDER_TC_ID, tcId);
 
-        return sendRequest('POST', path)
+        return sendAsyncRequest('POST', path)
     };
 };
 
@@ -224,8 +237,71 @@ function sendRequest(method, path, payload) {
     return fetch(method, path, payload).then(readResponse);
 }
 
+function sendApiRequest(method, path, payload) {
+    return (
+        fetch(method,  path,  payload)
+        .then(response => {
+            if ( isResponseSuccess(response) ) {
+                return response;
+            } else {
+                return (
+                    readApiError(response)
+                        .then(error => {
+                            throw error;
+                        })
+                );
+            }
+        })
+    );
+}
+
+function isResponseSuccess(response) {
+    var code = response.statusCode;
+
+    return code === HTTP_OK || code == HTTP_ACCEPTED || code == HTTP_NO_CONTENT;
+}
+
+function readApiError(response) {
+    if ( hasJsonContent(response) ) {
+        return readServiceError(response);
+    } else {
+        return readGeneralError(response);
+    }
+}
+
+function hasJsonContent( response ) {
+    var headers = response.headers;
+    var contentType = headers['content-type'];
+    var contentLength = headers['content-length'];
+
+    return contentType == CONTENT_TYPE_JSON && contentLength !== "0";
+}
+
+function readServiceError( response ) {
+    return (
+        readJsonBody(response)
+            .then(error => {
+                var message = error.message;
+                var code = error.code;
+                var reason = error.reason;
+
+                return new ServiceError( message, code, reason )
+            })
+    );
+}
+
+function readGeneralError(response) {
+    return (
+        readBody(response)
+            .then(message => {
+                var code = response.statusCode;
+
+                return new APIError(message, code)
+            })
+    );
+}
+
 function fetch(method, path, payload) {
-    console.log("sendRequest", method, path, payload);
     return new Promise((fulfil, reject) => {
         var headers = {
             'X-Version': apiVersion,
@@ -247,7 +323,7 @@ function fetch(method, path, payload) {
 
         // set body content type to json, if set
         if (payload) {
-            headers['Content-Type'] = 'application/json';
+            headers['Content-Type'] = CONTENT_TYPE_JSON;
             body = JSON.stringify(payload);
         }
 
@@ -283,30 +359,41 @@ function readResponse( response ) {
 function readProgress( response ) {
     var location = response.headers['location'];
 
-    return poll(location);
+    return pollStatus(location);
 }
 
-function poll( location ) {
-    return delay(apiPollInterval)
-        .then(sendRequest.bind(this, "GET", location))
-        .then(progress => {
-            if ( progress.status === "COMPLETED") {
-                return progress;
+function pollStatus(location ) {
+    return (
+        readStatus(location)
+        .then(status => {
+            if (isCompleted(status)) {
+                return status;
             } else {
-                return poll(location);
+                return (
+                    wait(apiPollInterval)
+                    .then(() => pollStatus(location))
+                );
             }
-        });
+        })
+    );
 }
 
-function delay(time) {
+function readStatus(location) {
+    return sendApiRequest("GET", location).then(readJsonBody);
+}
+
+function isCompleted(status) {
+    return status.status === "COMPLETED";
+}
+
+function wait(milliseconds) {
     return new Promise( fulfil => {
-        setTimeout(fulfil, time);
+        setTimeout(fulfil, milliseconds);
     })
 }
 
 function readJsonBody( response ) {
     var body = readBody(response);
-    body.then(console.log.bind(console, "body"));
 
     return body.then(body => {
         try {
@@ -339,3 +426,30 @@ function readError( response ) {
             throw error;
         });
 }
+
+function sendAsyncRequest( method, path, payload ) {
+    return (
+        sendApiRequest(method, path, payload)
+            .then(response => {
+                var location = getLocation(response);
+                var initialDelay = Promise.resolve(apiPollInterval);
+
+                if (hasJsonContent(response)) {
+                    initialDelay = readJsonBody(response)
+                        .then(status => status.estimatedLatency)
+                    ;
+                }
+
+                return (
+                    initialDelay
+                        .then(wait)
+                        .then(() => pollStatus(location))
+                );
+            })
+    );
+}
+
+function getLocation( response ) {
+    return response.headers["location"];
+}
+
