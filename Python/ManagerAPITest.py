@@ -2,16 +2,20 @@
 # This example is published under Apache License, Version 2.0
 # http://www.apache.org/licenses/LICENSE-2.0.html
 # @author Wikitude
-import json
 
 from ManagerAPI import ManagerAPI
-from ManagerAPI import APIError
+from ManagerAPI import APIException
 
 # The token to use when connecting to the endpoint
 API_TOKEN = "<enter-your-token-here>"
 API_VERSION = 2
 
 api = ManagerAPI(API_TOKEN, API_VERSION)
+
+EXAMPLE_IMAGE_URLS = [
+    "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg",
+    "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg"
+]
 
 try:
     # create a target colection with the name testCollection
@@ -25,15 +29,27 @@ try:
     print '\n\nADD TARGET:'
     target = {
         "name": "TC1",
-        "imageUrl": "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg"
+        "imageUrl": EXAMPLE_IMAGE_URLS[0]
     }
     result = api.addTarget(tcId, target)
     targetId = result['id']
-    print targetId
+    print 'added target: {0}'.format(targetId)
+
+    # add multiple targets to the target collection
+    print '\n\nADD TARGETS:'
+    targets = [{
+        "name": "TC2",
+        "imageUrl": EXAMPLE_IMAGE_URLS[1]
+    }]
+    print api.addTargets(tcId, targets)
 
     # publish the target collection. After the target collection has been published it can be used for recognition
     print '\n\nPUBLISH TARGETCOLLECTION:'
-    result = api.generateTargetCollection(tcId)
-    print result
-except APIError as e:
+    print api.generateTargetCollection(tcId)
+
+    # clean up
+    print '\n\nDELETE TARGETCOLLECTION:'
+    api.deleteTargetCollection(tcId)
+    print 'deleted target collection: {0}'.format(tcId)
+except APIException as e:
     print e

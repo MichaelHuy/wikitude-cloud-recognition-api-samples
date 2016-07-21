@@ -1,4 +1,3 @@
-
 /**
  * TargetsAPI shows a simple example how to interact with the Wikitude Targets API.
  * 
