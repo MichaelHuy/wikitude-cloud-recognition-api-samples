@@ -1,4 +1,13 @@
 <?php
+/**
+ * TargetsAPI shows a simple example how to interact with the Wikitude Cloud Targets API.
+ *
+ * This example is published under Apache License, Version 2.0
+ * http://www.apache.org/licenses/LICENSE-2.0.html
+ *
+ * @author Wikitude
+ *
+ */
 
 class APIException extends Exception {
     public function __construct($message, $code) {
@@ -15,7 +24,6 @@ class ServiceException extends APIException {
 
     public function __construct($message, $code, $reason) {
         parent::__construct($message, $code);
-
         $this->reason = $reason;
     }
 
@@ -25,16 +33,18 @@ class ServiceException extends APIException {
 }
 
 /**
- *
+ * @class ManagerAPI
  */
 class ManagerAPI
 {
-    // the API host live
+    // The endpoint where the Wikitude Cloud Targets API resides.
     private $API_HOST = 'https://api.wikitude.com';
 
+    // placeholders used for url-generation
     private $PLACEHOLDER_TC_ID       = '${TC_ID}';
     private $PLACEHOLDER_TARGET_ID   = '${TARGET_ID}';
 
+    // paths used for manipulation of target collection and target images
     private $PATH_ADD_TC      = '/cloudrecognition/targetCollection';
     private $PATH_GET_TC      = '/cloudrecognition/targetCollection/${TC_ID}';
     private $PATH_GENERATE_TC = '/cloudrecognition/targetCollection/${TC_ID}/generation/cloudarchive';
@@ -43,6 +53,7 @@ class ManagerAPI
     private $PATH_ADD_TARGETS = '/cloudrecognition/targetCollection/${TC_ID}/targets';
     private $PATH_GET_TARGET  = '/cloudrecognition/targetCollection/${TC_ID}/target/${TARGET_ID}';
 
+    // status codes as returned by the api
     private $HTTP_OK         = 200;
     private $HTTP_ACCEPTED   = 202;
     private $HTTP_NO_CONTENT = 204;
@@ -57,9 +68,10 @@ class ManagerAPI
     private $pollInterval = null;
 
     /**
-     * ManagerAPI constructor.
-     * @param string $token Your API key
-     * @param string $version of the API we will use
+     * Creates a new ManagerAPI object that offers the service to interact with the Wikitude Cloud Targets API.
+     *
+     * @param string $token The token to use when connecting to the endpoint
+     * @param string $version The version of the API we will use
      * @param int $pollInterval in milliseconds used to poll status of asynchronous operations
      */
     function __construct($token, $version = "2", $pollInterval = 10000){
@@ -77,7 +89,8 @@ class ManagerAPI
      */
     public function createTargetCollection($tcName) {
         $payload = array('name' => $tcName);
-        return $this->sendHttpRequest('POST', $this->PATH_ADD_TC, $payload);
+
+        return $this->sendRequest('POST', $this->PATH_ADD_TC, $payload);
     }
 
     /**
@@ -85,7 +98,7 @@ class ManagerAPI
      * @return array containing JSONObjects of all targetCollection that were created
      */
     public function getAllTargetCollections() {
-        return $this->sendHttpRequest('GET', $this->PATH_ADD_TC);
+        return $this->sendRequest('GET', $this->PATH_ADD_TC);
     }
 
     /**
@@ -97,7 +110,8 @@ class ManagerAPI
     public function renameTargetCollection($tcId, $tcName) {
         $payload = array('name' => $tcName);
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TC);
-        return $this->sendHttpRequest('POST', $path,$payload);
+
+        return $this->sendRequest('POST', $path,$payload);
     }
 
     /**
@@ -107,7 +121,8 @@ class ManagerAPI
      */
     public function getTargetCollection($tcId) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TC);
-        return $this->sendHttpRequest('GET', $path);
+
+        return $this->sendRequest('GET', $path);
     }
 
     /**
@@ -117,7 +132,8 @@ class ManagerAPI
      */
     public function deleteTargetCollection($tcId) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TC);
-        $this->sendHttpRequest('DELETE', $path);
+        $this->sendRequest('DELETE', $path);
+
         return true;
     }
 
@@ -128,18 +144,20 @@ class ManagerAPI
      */
     public function getAllTargets($tcId) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_ADD_TARGET);
-        return $this->sendHttpRequest('GET', $path);
+
+        return $this->sendRequest('GET', $path);
     }
 
     /**
-     * adds a target to an existing target collection
+     * adds a target to an existing target collection. Note: You have to call generateTargetCollection to take changes into account
      * @param string $tcId id of the target collection to add target to
      * @param array $target array representation of target, e.g. array("name" => "TC1","imageUrl" => "http://myurl.com/image.jpeg");
      * @return array representation of created target (includes unique "id"-attribute)
      */
     public function addTarget($tcId, $target) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_ADD_TARGET);
-        return $this->sendHttpRequest('POST', $path, $target);
+
+        return $this->sendRequest('POST', $path, $target);
     }
 
     /**
@@ -150,6 +168,7 @@ class ManagerAPI
      */
     public function addTargets($tcId, $targets) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_ADD_TARGETS);
+
         return $this->sendAsyncRequest('POST', $path, $targets);
     }
 
@@ -161,30 +180,32 @@ class ManagerAPI
      */
     public function getTarget($tcId, $targetId) {
         $path = str_replace($this->PLACEHOLDER_TARGET_ID, $targetId, str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TARGET));
-        return $this->sendHttpRequest('GET', $path);
+
+        return $this->sendRequest('GET', $path);
     }
 
     /**
      * Update target JSON properties of existing targetId and targetCollectionId
      * @param string $tcId id of target collection
      * @param string $targetId id of target
-     * @param string $target JSON representation of the target's properties that shall be updated, e.g. { "physicalHeight": 200 }
+     * @param array $target JSON representation of the target's properties that shall be updated, e.g. { "physicalHeight": 200 }
      * @return array JSON representation of target as an array
      */
     public function updateTarget($tcId, $targetId, $target) {
         $path = str_replace($this->PLACEHOLDER_TARGET_ID, $targetId, str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TARGET));
-        return $this->sendHttpRequest('POST', $path, $target);
+
+        return $this->sendRequest('POST', $path, $target);
     }
 
     /**
-     * Delete existing target from a collection
+     * Deletes existing target from a target collection
      * @param string $tcId id of target collection
      * @param string $targetId id of target
      * @return true after successful deletion
      */
     public function deleteTarget($tcId, $targetId) {
         $path = str_replace($this->PLACEHOLDER_TARGET_ID, $targetId, str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GET_TARGET));
-        $this->sendHttpRequest('DELETE', $path);
+        $this->sendRequest('DELETE', $path);
         return true;
     }
 
@@ -200,7 +221,7 @@ class ManagerAPI
     }
 
     /**
-     * Send the POST request to the Wikitude Cloud Targets API.
+     * HELPER method to send request to the Wikitude Cloud Targets API.
      *
      * @param method
      *            the HTTP-method which will be used when sending the request
@@ -210,17 +231,22 @@ class ManagerAPI
      *            the array which will be converted to a JSON object which will be posted into the body
      * @return array|null
      */
-    private function sendHttpRequest($method, $path, $payload = null) {
+    private function sendRequest($method, $path, $payload = null) {
         $response = $this->sendAPIRequest($method, $path, $payload);
+        $jsonResponse = null;
 
-        return $this->readJsonBody($response);
+        if ( $this->hasJsonContent($response) ) {
+            $jsonResponse = $this->readJsonBody($response);
+        }
+
+        return $jsonResponse;
     }
 
     private function sendAPIRequest($method, $path, $payload = null) {
         // create url
         $url = $this->apiRoot . $path;
 
-        //prepare the request
+        // prepare the request
         $headers = array(
             "Content-Type: application/json",
             "X-Version: {$this->version}",
@@ -330,12 +356,13 @@ class ManagerAPI
     private function sendAsyncRequest($method, $path, $payload = null) {
         $response = $this->sendAPIRequest($method, $path, $payload);
         $location = $this->getLocation($response);
+        $initialDelay = $this->pollInterval;
 
         if ( $this->hasJsonContent($response) ) {
             $status = $this->readJsonBody($response);
-            $estimatedLatency = $status["estimatedLatency"];
-            $this->wait($estimatedLatency);
+            $initialDelay = $status["estimatedLatency"];
         }
+        $this->wait($initialDelay);
 
         return $this->pollStatus($location);
     }
@@ -350,13 +377,13 @@ class ManagerAPI
     }
 
     private function pollStatus($location) {
-        $status = null;
-        do {
-            $this->wait($this->pollInterval);
+        while (true) {
             $status = $this->readStatus($location);
-        } while( $this->isNotCompleted($status) );
-
-        return $status;
+            if ($this->isCompleted($status) ) {
+                return $status;
+            }
+            $this->wait($this->pollInterval);
+        };
     }
 
     private function readStatus($location) {
@@ -365,8 +392,8 @@ class ManagerAPI
         return $this->readJsonBody($response);
     }
 
-    private function isNotCompleted($status) {
-        return $status["status"] != "COMPLETED";
+    private function isCompleted($status) {
+        return $status["status"] == "COMPLETED";
     }
 }
 
