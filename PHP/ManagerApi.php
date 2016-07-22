@@ -58,7 +58,7 @@ class ManagerAPI
     private $HTTP_ACCEPTED   = 202;
     private $HTTP_NO_CONTENT = 204;
 
-    // Your API key
+    // The token to use when connecting to the endpoint
     private $token = null;
     // The version of the API we will use
     private $version = null;
@@ -164,7 +164,9 @@ class ManagerAPI
      * adds multiple targets to an existing target collection
      * @param string $tcId id of the target collection to add targets to
      * @param array $targets array of targets
-     * @return array representation of created target (includes unique "id"-attribute)
+     * @return array representation of the status of the operation
+     *      Note: this method will wait until the operation is finished, depending on the amount of targets this
+     *      operation may take seconds to minutes
      */
     public function addTargets($tcId, $targets) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_ADD_TARGETS);
@@ -212,8 +214,9 @@ class ManagerAPI
     /***
      * Gives command to start generation of given target collection. Note: Added targets will only be analyzed after generation.
      * @param string $tcId id of target collection
-     * @return true on successful generation start. It will not wait until the generation is finished. The generation
-     *      will take some time, depending on the amount of targets that have to be generated
+     * @return array representation of the status of the operation
+     *      Note: this method will wait until the operation is finished, depending on the amount of targets this
+     *      operation may take seconds to minutes
      */
     public function generateTargetCollection($tcId) {
         $path = str_replace($this->PLACEHOLDER_TC_ID, $tcId, $this->PATH_GENERATE_TC);
@@ -226,7 +229,7 @@ class ManagerAPI
      * @param method
      *            the HTTP-method which will be used when sending the request
      * @param path
-     *            the path to the service which is defined in the private variables
+     *          the path to the service which is defined in the private variables
      * @param payload
      *            the array which will be converted to a JSON object which will be posted into the body
      * @return array|null

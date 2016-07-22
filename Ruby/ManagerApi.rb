@@ -74,16 +74,13 @@ class ManagerAPI
   def createTargetCollection(name)
     path = PATH_ADD_TC
     payload = { :name => name }
-
     return sendRequest('POST', path, payload)
   end
 
   # Retrieve all created and active target collections
   # @return Array containing JSONObjects of all targetCollection that were created
   def getAllTargetCollections
-    path = PATH_ADD_TC
-
-    return sendRequest('GET', path)
+    return sendRequest('GET', PATH_ADD_TC)
   end
 
   # Rename existing target collection
@@ -108,7 +105,7 @@ class ManagerAPI
 
   # Deletes given target collection including all of its target images. Note: this cannot be undone.
   # @param tcId id of target collection
-  # @return true on successful deletion, false otherwise
+  # @return true on successful deletion, raises an APIError otherwise
   def deleteTargetCollection(tcId)
     path = PATH_GET_TC.dup
     path[PLACEHOLDER_TC_ID] = tcId
@@ -138,7 +135,9 @@ class ManagerAPI
   # adds multiple targets to an existing target collection
   # @param tcId
   # @param targets array representation of targets, e.g. array(array("name" => "TC1","imageUrl" => "http://myurl.com/image.jpeg"))
-  # @return array representation of created target (includes unique "id"-attribute)
+  # @return array representation of the status of the operation
+  #      Note: this method will wait until the operation is finished, depending on the amount of targets this
+  #      operation may take seconds to minutes
   def addTargets(tcId, targets)
     path = PATH_ADD_TARGETS.dup
     path[PLACEHOLDER_TC_ID] = tcId
@@ -171,7 +170,7 @@ class ManagerAPI
   # Delete existing target from a collection
   # @param tcId id of target collection
   # @param targetId id of target
-  # @return true after successful deletion
+  # @return true on successful deletion, raises an APIError otherwise
   def deleteTarget(tcId, targetId)
     path = PATH_GET_TARGET.dup
     path[PLACEHOLDER_TC_ID] = tcId
@@ -182,7 +181,9 @@ class ManagerAPI
 
   # Gives command to start generation of given target collection. Note: Added targets will only be analyzed after generation.
   # @param tcId id of target collection
-  # @return true on successful generation start. It will not wait until the generation is finished. The generation will take some time, depending on the amount of targets that have to be generated
+  # @return array representation of the status of the operation
+  #      Note: this method will wait until the operation is finished, depending on the amount of targets this
+  #      operation may take seconds to minutes
   def generateTargetCollection(tcId)
     path = PATH_GENERATE_TC.dup
     path[PLACEHOLDER_TC_ID] = tcId
@@ -241,6 +242,11 @@ class ManagerAPI
     end
   end
 
+  def isResponseSuccess(response)
+    code = response.code
+    return code == HTTP_OK || code == HTTP_ACCEPTED || code == HTTP_NO_CONTENT
+  end
+
   def readAPIError(response)
     if hasJsonContent(response)
       return readServiceError(response)
@@ -260,7 +266,6 @@ class ManagerAPI
       message = error['message']
       code = error['code']
       reason = error['reason']
-
       return ServiceError.new(message, code, reason)
   end
 
@@ -271,13 +276,7 @@ class ManagerAPI
   def readGeneralError(response)
     message = response.body
     code = response.code
-
     return APIError.new(message, code)
-  end
-
-  def isResponseSuccess(response)
-    code = response.code
-    return code == HTTP_OK || code == HTTP_ACCEPTED || code == HTTP_NO_CONTENT
   end
 
   # @param [String] method
@@ -287,14 +286,14 @@ class ManagerAPI
     response = sendAPIRequest(method, path, payload)
     location = getLocation(response)
     initialDelay = @pollInterval
+
     if hasJsonContent(response)
       status = readJsonBody(response)
       initialDelay = status['estimatedLatency']
     end
 
     wait(initialDelay)
-
-    return pollLocation(location)
+    return pollStatus(location)
   end
 
   def getLocation(response)
@@ -306,7 +305,7 @@ class ManagerAPI
     sleep(seconds)
   end
 
-  def pollLocation(location)
+  def pollStatus(location)
     loop do
       status = readStatus(location)
       if isCompleted(status)

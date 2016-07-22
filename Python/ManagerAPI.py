@@ -1,3 +1,10 @@
+# TargetsAPI shows a simple example how to interact with the Wikitude Cloud Targets API.
+#
+# This example is published under Apache License, Version 2.0
+# http://www.apache.org/licenses/LICENSE-2.0.html
+#
+# @author Wikitude
+
 # Make sure that you have the requests-library installed
 # You can get the library here: http://docs.python-requests.org/
 # or install it via commandline: pip install requests
@@ -27,11 +34,14 @@ class ServiceException(APIException):
 
 class ManagerAPI:
 
+    # The endpoint where the Wikitude Cloud Targets API resides.
     API_ENDPOINT = 'https://api.wikitude.com'
 
+    # placeholders used for url-generation
     PLACEHOLDER_TC_ID       = '${TC_ID}'
     PLACEHOLDER_TARGET_ID   = '${TARGET_ID}'
 
+    # paths used for manipulation of target collection and target images
     PATH_ADD_TC      = '/cloudrecognition/targetCollection'
     PATH_GET_TC      = '/cloudrecognition/targetCollection/${TC_ID}'
     PATH_GENERATE_TC = '/cloudrecognition/targetCollection/${TC_ID}/generation/cloudarchive'
@@ -42,16 +52,21 @@ class ManagerAPI:
 
     CONTENT_TYPE_JSON = 'application/json'
 
+    # status codes as returned by the api
     HTTP_OK         = 200
     HTTP_ACCEPTED   = 202
     HTTP_NO_CONTENT = 204
 
+    # Creates a new TargetsAPI object that offers the service to interact with the Wikitude Cloud Targets API.
+    # @param token: The token to use when connecting to the endpoint
+    # @param version: The version of the API we will use
+    # @param pollInterval: in milliseconds used to poll status of asynchronous operations
     def __init__(self, token, version, pollInterval=10000):
         self.token = token
         self.version = version
         self.pollInterval = pollInterval
 
-    # Create target Collection with given name.
+    # Create target collection with given name.
     # @param tcName target collection's name. Note that response contains an "id" 
     #       attribute, which acts as unique identifier
     # @return array of the JSON representation of the created empty target collection
@@ -82,7 +97,7 @@ class ManagerAPI:
 
     # deletes existing target collection by id (NOT name)
     # @param tcId id of target collection
-    # @return True on successful deletion, raises an APIError otherwise
+    # @return True on successful deletion, raises an APIException otherwise
     def deleteTargetCollection(self, tcId):
         path = ManagerAPI.PATH_GET_TC.replace(ManagerAPI.PLACEHOLDER_TC_ID, tcId)
         self.__sendHttpRequest('DELETE', path)
@@ -106,7 +121,9 @@ class ManagerAPI:
     # adds multiple targets to an existing target collection
     # @param tcId
     # @param targets JSON representation of targets, e.g. [{ "name": "TC1", "imageUrl": "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg" }]
-    # @return array representation of created target (includes unique "id"-attribute)
+    # @return array representation of the status of the operation
+    #      Note: this method will wait until the operation is finished, depending on the amount of targets this
+    #      operation may take seconds to minutes
     def addTargets(self, tcId, targets):
         path = ManagerAPI.PATH_ADD_TARGETS.replace(ManagerAPI.PLACEHOLDER_TC_ID, tcId)
         return self.__sendAsyncRequest('POST', path, targets)
@@ -131,7 +148,7 @@ class ManagerAPI:
     # Delete existing target from a collection
     # @param tcId id of target collection
     # @param targetId id of target
-    # @return True after successful deletion
+    # @return True on successful deletion, raises an APIException otherwise
     def deleteTarget(self, tcId, targetId):
         path = (ManagerAPI.PATH_GET_TARGET.replace(ManagerAPI.PLACEHOLDER_TC_ID, tcId)).replace(ManagerAPI.PLACEHOLDER_TARGET_ID, targetId)
         self.__sendHttpRequest('DELETE', path)
@@ -140,8 +157,9 @@ class ManagerAPI:
     # Gives command to start generation of given target collection. Note: Added targets will only be analyzed
     # after generation.
     # @param tcId id of target collection
-    # @return True on successful generation start. It will not wait until the generation is finished. The generation
-    # will take some time, depending on the amount of targets that have to be generated
+    # @return array representation of the status of the operation
+    #      Note: this method will wait until the operation is finished, depending on the amount of targets this
+    #      operation may take seconds to minutes
     def generateTargetCollection(self, tcId):
         path = ManagerAPI.PATH_GENERATE_TC.replace(ManagerAPI.PLACEHOLDER_TC_ID, tcId)
         return self.__sendAsyncRequest('POST', path)
@@ -202,7 +220,6 @@ class ManagerAPI:
         code = error["code"]
         reason = error["reason"]
         message = error["message"]
-
         return ServiceException(message, code, reason)
 
     def __readJsonBody(self, response):
@@ -223,7 +240,6 @@ class ManagerAPI:
             initialDelay = status['estimatedLatency']
 
         self.__wait(initialDelay)
-
         return self.__pollStatus(location)
 
     def __getLocation(self, response):
@@ -242,7 +258,6 @@ class ManagerAPI:
 
     def __readStatus(self, location):
         response = self.__sendApiRequest('GET', location)
-
         return self.__readJsonBody(response)
 
     def __isCompleted(self, status):

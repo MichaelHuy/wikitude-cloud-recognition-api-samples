@@ -171,8 +171,9 @@ module.exports = class ManagerAPI {
      * Adds targets to existing target collection. Note: You have to call generateTargetCollection to take changes into account
      * @param {string} tcId id of target collection
      * @param targets Array of JSONObjects of targetImages. Must contain 'name' and 'imageUrl' attribute
-     * @returns {Promise}
-     *      resolved once target image was added, result is JSONObject of target ('id' is unique targetId)
+     * @returns {Promise} JSON representation of the status of the operation
+     *      resolved once the operation finished, for the result the service will be polled
+     *      Note: Depending on the amount of targets this operation may take from seconds to minutes
      */
     addTargets(tcId, targets) {
         var path = PATH_ADD_TARGETS.replace(PLACEHOLDER_TC_ID, tcId);
@@ -212,7 +213,7 @@ module.exports = class ManagerAPI {
      * @param {string} tcId id of target collection
      * @param {string} targetId id of target
      * @returns {Promise}
-     *      resolved once target image was deleted, result is JSONObject of target collection
+     *      resolved once target image was deleted
      */
     deleteTarget(tcId, targetId) {
         var path = PATH_GET_TARGET.replace(PLACEHOLDER_TC_ID, tcId).replace(PLACEHOLDER_TARGET_ID, targetId);
@@ -223,9 +224,9 @@ module.exports = class ManagerAPI {
     /**
      * Generates target collection. Note: You must call this to put target image changes live. Before calling this target images are only marked ass added/removed internally
      * @param {string} tcId id of target collection
-     * @returns {Promise}
-     *      resolved once target collection was created for the result the service will be polled
-     *      Note: Depending on the number of targetImages this operation may take from seconds to minutes
+     * @returns {Promise} JSON representation of the status of the operation
+     *      resolved once the operation finished, for the result the service will be polled
+     *      Note: Depending on the amount of targets this operation may take from seconds to minutes
      */
     generateTargetCollection(tcId) {
         var path = PATH_GENERATE_TC.replace(PLACEHOLDER_TC_ID, tcId);
