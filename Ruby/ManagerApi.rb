@@ -1,3 +1,10 @@
+# TargetsAPI shows a simple example how to interact with the Wikitude Cloud Targets API.
+#
+# This example is published under Apache License, Version 2.0
+# http://www.apache.org/licenses/LICENSE-2.0.html
+#
+# @author Wikitude
+
 require 'uri'
 require 'net/http'
 require 'json'
@@ -24,18 +31,16 @@ class ServiceError < APIError
   end
 end
 
-# TargetsAPI shows a simple example how to interact with the Wikitude Cloud Targets API.
-# This example is published under Apache License, Version 2.0
-# http://www.apache.org/licenses/LICENSE-2.0.html
-# @author Wikitude
 class ManagerAPI
 
   # The endpoint where the Wikitude Cloud Targets API resides.
   API_ENDPOINT = 'https://api.wikitude.com'
 
+  # placeholders used for url-generation
   PLACEHOLDER_TC_ID       = '${TC_ID}'
   PLACEHOLDER_TARGET_ID   = '${TARGET_ID}'
 
+  # paths used for manipulation of target collection and target images
   PATH_ADD_TC      = '/cloudrecognition/targetCollection'
   PATH_GET_TC      = '/cloudrecognition/targetCollection/${TC_ID}'
   PATH_GENERATE_TC = '/cloudrecognition/targetCollection/${TC_ID}/generation/cloudarchive'
@@ -46,6 +51,7 @@ class ManagerAPI
 
   CONTENT_TYPE_JSON = 'application/json'
 
+  # status codes as returned by the api
   HTTP_OK         = '200'
   HTTP_ACCEPTED   = '202'
   HTTP_NO_CONTENT = '204'
@@ -53,64 +59,61 @@ class ManagerAPI
   # Creates a new TargetsAPI object that offers the service to interact with the Wikitude Cloud Targets API.
   # @param token: The token to use when connecting to the endpoint
   # @param version: The version of the API we will use
-  # @param pollInterval: interval to used for polling the status of asynchronous operations
+  # @param pollInterval: in milliseconds used to poll status of asynchronous operations
   def initialize(token, version, pollInterval = 10000)
-    # The token to use when connecting to the endpoint
+    # save the configured values
     @token = token
-    # The version of the API we will use
     @version = version
     @pollInterval = pollInterval
   end
 
   public
-  # Create target Collection with given name.
-  # @param tcName target collection's name. Note that response contains an "id" 
-  # tribute, which acts as unique identifier
+  # Create target collection with given name. Note: response contains unique "id" attribute, which is required for any further modifications
+  # @param name of the target collection
   # @return array of the JSON representation of the created empty target collection
-  def createTargetCollection(tcName)
-    payload = { :name => tcName }
-    return sendHttpRequest(payload, 'POST', PATH_ADD_TC)
+  def createTargetCollection(name)
+    path = PATH_ADD_TC
+    payload = { :name => name }
+
+    return sendRequest('POST', path, payload)
   end
 
   # Retrieve all created and active target collections
   # @return Array containing JSONObjects of all targetCollection that were created
   def getAllTargetCollections
-    return sendHttpRequest(nil, 'GET', PATH_ADD_TC)
+    path = PATH_ADD_TC
+
+    return sendRequest('GET', path)
   end
 
   # Rename existing target collection
   # @param tcId id of target collection
-  # @param tcName new name to use for this target collection
+  # @param name new name to use for this target collection
   # @return the updated JSON representation as an array of the modified target collection
-  def renameTargetCollection(tcId, tcName)
-    payload = { :name => tcName }
+  def renameTargetCollection(tcId, name)
+    payload = { :name => name }
     path = PATH_GET_TC.dup
     path[PLACEHOLDER_TC_ID] = tcId
-    return sendHttpRequest(payload, 'POST', path)
+    return sendRequest('POST', path, payload)
   end
 
-   # Receive JSON representation of existing target collection (without making any modifications)
+  # Receive JSON representation of existing target collection (without making any modifications)
   # @param tcId id of the target collection
   # @return array of the JSON representation of target collection
   def getTargetCollection(tcId)
     path = PATH_GET_TC.dup
     path[PLACEHOLDER_TC_ID] = tcId
-    return sendHttpRequest(nil, 'POST', path)
+    return sendRequest('POST', path)
   end
 
-  # deletes existing target collection by id (NOT name)
+  # Deletes given target collection including all of its target images. Note: this cannot be undone.
   # @param tcId id of target collection
   # @return true on successful deletion, false otherwise
   def deleteTargetCollection(tcId)
     path = PATH_GET_TC.dup
     path[PLACEHOLDER_TC_ID] = tcId
-    result = sendHttpRequest(nil, 'DELETE', path)
-    if result == nil
-      ret = true
-    else
-      ret = false
-    end
-    return ret
+    sendRequest('DELETE', path)
+    return true
   end
 
   # retrieve all targets from a target collection by id (NOT name)
@@ -119,7 +122,7 @@ class ManagerAPI
   def getAllTargets(tcId)
     path = PATH_ADD_TARGET.dup
     path[PLACEHOLDER_TC_ID] = tcId
-    return sendHttpRequest(nil, 'GET', path)
+    return sendRequest('GET', path)
   end
 
   # adds a target to an existing target collection
@@ -129,7 +132,7 @@ class ManagerAPI
   def addTarget(tcId, target)
     path = PATH_ADD_TARGET.dup
     path[PLACEHOLDER_TC_ID] = tcId
-    return sendHttpRequest(target, 'POST', path)
+    return sendRequest('POST', path, target)
   end
 
   # adds multiple targets to an existing target collection
@@ -150,7 +153,7 @@ class ManagerAPI
     path = PATH_GET_TARGET.dup
     path[PLACEHOLDER_TC_ID] = tcId
     path[PLACEHOLDER_TARGET_ID] = targetId
-    return sendHttpRequest(nil, 'GET', path)
+    return sendRequest('GET', path)
   end
 
   # Update target JSON properties of existing targetId and targetCollectionId
@@ -162,7 +165,7 @@ class ManagerAPI
     path = PATH_GET_TARGET.dup
     path[PLACEHOLDER_TC_ID] = tcId
     path[PLACEHOLDER_TARGET_ID] = targetId
-    return sendHttpRequest(target, 'POST', path)
+    return sendRequest('POST', path, target)
   end
 
   # Delete existing target from a collection
@@ -173,7 +176,7 @@ class ManagerAPI
     path = PATH_GET_TARGET.dup
     path[PLACEHOLDER_TC_ID] = tcId
     path[PLACEHOLDER_TARGET_ID] = targetId
-    sendHttpRequest(nil, 'DELETE', path)
+    sendRequest('DELETE', path)
     return true
   end
 
@@ -187,8 +190,12 @@ class ManagerAPI
   end
 
   private
-  def sendHttpRequest(payload, method, path)
-    response = sendAPIRequest(method,path,payload)
+  # HELPER method to send request to the Wikitude API.
+  # @param [String] method
+  # @param [String] path
+  # @param payload
+  def sendRequest(method, path, payload = nil)
+    response = sendAPIRequest(method, path, payload)
 
     jsonResponse = nil
     if hasJsonContent(response)
@@ -273,6 +280,9 @@ class ManagerAPI
     return code == HTTP_OK || code == HTTP_ACCEPTED || code == HTTP_NO_CONTENT
   end
 
+  # @param [String] method
+  # @param [String] path
+  # @param payload
   def sendAsyncRequest(method, path, payload = nil)
     response = sendAPIRequest(method, path, payload)
     location = getLocation(response)
