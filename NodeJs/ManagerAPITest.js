@@ -1,4 +1,3 @@
-
 /**
  * TargetsAPI shows a simple example how to interact with the Wikitude Targets API.
  * 
@@ -7,51 +6,71 @@
  * @author Wikitude
  */
 
- var express = require('express');
- var app = express();
+var token = '<enter-your-token-here>';
 
-// tests Wikitude TargetApi usage
-app.get('/testTargetApi', function(req, res) {
-    var ManagerApi = require('./ManagerAPI.js');
+var ManagerApi = require('./ManagerAPI.js');
 
-    // create API using own token and version
-    var api = new ManagerApi('<enter-your-token-here>', 2);
+// create API using own token and version
+var api = new ManagerApi(token, 2);
 
-    // function called once target collection was created
-    var testTargetCollection = function(createdTargetCollection) {
+var EXAMPLE_IMAGE_URLS = [
+    "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg",
+    "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg"
+];
 
-        // create new target, generate target collection, receive all meta information and delete complete target collection
-        var imageUrlNewTarget = "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg";
+// create target collection
+api.createTargetCollection("targetCollection")
+    .then(createdTargetCollection => {
+        var targetCollectionId = createdTargetCollection.id;
+        console.log(`created targetCollection: ${targetCollectionId}`);
 
-        // 1) Add a target image to the collection (Note this happens in parallel to the previous deletion test)
-        api.addTarget(createdTargetCollection.id, {'name': 'myTarget1', 'imageUrl': imageUrlNewTarget}, function(err, createdTarget) {
-            if (err) {
-                console.log("ERROR OCCURRED: " + err);
-                return;
-            }
-            console.log("id of created target: " + createdTarget.id);
+        return ( Promise.resolve()
+            // rename targetCollection
+            .then(() => api.renameTargetCollection(targetCollectionId, "renamed targetCollection"))
+            .then(targetCollection => {
+                console.log(`renamed targetCollection: ${targetCollection.id}`);
+            })
 
-            // 2) generate target collection
-            api.generateTargetCollection(createdTargetCollection.id, function(err, result) {
-                console.log("generated targetCollection " + createdTargetCollection.id + "? " + (err ? "NO" : "YES"));
-            });
-        });
-    };
+            // Add multiple target images to the collection (Note this happens in parallel to the previous deletion test)
+            .then(() => {
+                var target = { name: "myTarget0", imageUrl: EXAMPLE_IMAGE_URLS[0] };
 
-    // create target collection and write JSON of target collection to response
-    api.createTargetCollection('firstOne', function(err, result) {
-        if (err) {
-            res.status(500);
-            res.send();
-        } else {
-            testTargetCollection(result);
-            res.json(result);
-            res.status(200);
-        }
-    });
+                return api.addTarget(targetCollectionId, target)
+            })
+            .then(target => {
+                console.log(`created target ${target.id}`);
+            })
 
-});
 
-var server = app.listen(3000, function () { 
-    console.log('Example app listening now');
-});
+            // Add multiple target images to the collection (Note this happens in parallel to the previous deletion test)
+            .then(() => {
+                var targets = [
+                    { name: "myTarget1", imageUrl: EXAMPLE_IMAGE_URLS[1] }
+                ];
+
+                return api.addTargets(targetCollectionId, targets)
+            })
+            .then(status => {
+                console.log(`created targets, generation id: ${status.generationId}`);
+            })
+
+            // generate target collection
+            .then(() => {
+                console.log(`PUBLISH TARGET COLLECTION`);
+            })
+            .then(() => api.generateTargetCollection(targetCollectionId))
+            .then(archive => {
+                console.log(`generated cloud archive: ${archive.id}`);
+            })
+
+            // clean up and delete targetCollection
+            .then(() => api.deleteTargetCollection(targetCollectionId))
+            .then(() => {
+                console.log(`removed targetCollection: ${targetCollectionId}`);
+            })
+        );
+    })
+    .catch(error => {
+        console.error("ERROR OCCURRED:", error.message, error);
+    })
+;

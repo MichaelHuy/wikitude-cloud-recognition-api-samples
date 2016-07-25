@@ -2,9 +2,9 @@
 # This example is published under Apache License, Version 2.0
 # http://www.apache.org/licenses/LICENSE-2.0.html
 # @author Wikitude
-import json
 
 from ManagerAPI import ManagerAPI
+from ManagerAPI import APIException
 
 # The token to use when connecting to the endpoint
 API_TOKEN = "<enter-your-token-here>"
@@ -12,24 +12,44 @@ API_VERSION = 2
 
 api = ManagerAPI(API_TOKEN, API_VERSION)
 
-# create a target colection with the name testCollection 
-# and store the id which is of the target collection which is returned
-print '\n\nCREATE TARGETCOLLECTION:'
-result = api.createTargetCollection('testCollection')
-print result
-tcId = result['id']
+EXAMPLE_IMAGE_URLS = [
+    "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg",
+    "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg"
+]
 
-# add a target to the target collection which was created in the previous step
-print '\n\nADD TARGET:'
-target = {
-    "name": "TC1",
-    "imageUrl": "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg"
-}
-result = api.addTarget(tcId, target)
-targetId = result['id']
-print targetId
+try:
+    # create a target colection with the name testCollection
+    # and store the id which is of the target collection which is returned
+    print '\n\nCREATE TARGETCOLLECTION:'
+    result = api.createTargetCollection('testCollection')
+    print result
+    tcId = result['id']
 
-# publish the target collection. After the target collection has been published it can be used for recognition
-print '\n\nPUBLISH TARGETCOLLECTION:'
-result = api.getTargetCollection(tcId)
-print result
+    # add a target to the target collection which was created in the previous step
+    print '\n\nADD TARGET:'
+    target = {
+        "name": "TC1",
+        "imageUrl": EXAMPLE_IMAGE_URLS[0]
+    }
+    result = api.addTarget(tcId, target)
+    targetId = result['id']
+    print 'added target: {0}'.format(targetId)
+
+    # add multiple targets to the target collection
+    print '\n\nADD TARGETS:'
+    targets = [{
+        "name": "TC2",
+        "imageUrl": EXAMPLE_IMAGE_URLS[1]
+    }]
+    print api.addTargets(tcId, targets)
+
+    # publish the target collection. After the target collection has been published it can be used for recognition
+    print '\n\nPUBLISH TARGETCOLLECTION:'
+    print api.generateTargetCollection(tcId)
+
+    # clean up
+    print '\n\nDELETE TARGETCOLLECTION:'
+    api.deleteTargetCollection(tcId)
+    print 'deleted target collection: {0}'.format(tcId)
+except APIException as e:
+    print e

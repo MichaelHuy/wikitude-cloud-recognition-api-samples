@@ -32,3 +32,30 @@ view source code on <a target="_blank" href="https://github.com/Wikitude/wikitud
 <div class="githubnote">
 view source code on <a target="_blank" href="https://github.com/Wikitude/wikitude-cloud-recognition-api-samples/tree/master/Ruby">GitHub</a>
 </div>
+
+# Change Log
+All notable changes to this project will be documented in this file.
+
+## [2.1.0]
+ * compatible with API version 2
+ * an example for polling the status of asynchronous operations was
+   added
+ * addTargets api method was added
+ * generateTargetCollection now waits until the operations finishes
+ * Java
+    * APIException gets thrown if the service responds with an error
+ * NodeJs
+    * APIError gets thrown if the service responds with an error
+    * api methods now return a Promises
+ * PHP
+    * APIException gets thrown if the service responds with an error
+ * Python
+    * APIException gets thrown if the service responds with an error
+ * Ruby
+    * APIError gets thrown if the service responds with an error
+
+## 2.0.0
+ * initial release version of examples
+ * compatible with API version 2
+
+[2.1.0]: https://github.com/Wikitude/wikitude-cloud-recognition-api-samples/compare/v2.0.0...v2.1.0
