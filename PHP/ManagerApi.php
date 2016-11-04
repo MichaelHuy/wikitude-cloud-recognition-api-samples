@@ -280,7 +280,12 @@ class ManagerAPI
 
         $responseHeaders = array();
         $addHeaderLine = function ( $curl, $line ) use (&$responseHeaders) {
-            list($name, $value) = explode(": ", $line, 2);
+            $parts = explode(": ", $line, 2);
+            $name = $parts[0];
+            $value = "";
+            if ( isset($parts[1])) {
+                $value = $parts[1];
+            }
             $value = trim($value, "\n\r");
             if ( $value ) {
                 $responseHeaders[$name] = $value;
