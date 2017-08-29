@@ -6,71 +6,80 @@
  * @author Wikitude
  */
 
-var token = '<enter-your-token-here>';
+const ManagerApi = require('./ManagerAPI.js');
 
-var ManagerApi = require('./ManagerAPI.js');
+const token = '<enter-your-manager-token-here>';
+const userEmail = '<enter-your-email-here>';
+const EXAMPLE_OBJECT_VIDEO = '<enter-path-to-object-video-here>';
 
 // create API using own token and version
-var api = new ManagerApi(token, 2);
-
-var EXAMPLE_IMAGE_URLS = [
+const api = new ManagerApi(token, 3);
+const EXAMPLE_IMAGE_URLS = [
     "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/surfer.jpeg",
     "http://s3-eu-west-1.amazonaws.com/web-api-hosting/examples_data/biker.jpeg"
 ];
 
-// create target collection
-api.createTargetCollection("targetCollection")
-    .then(createdTargetCollection => {
-        var targetCollectionId = createdTargetCollection.id;
-        console.log(`created targetCollection: ${targetCollectionId}`);
+api.createTargetCollection('Image Target Collection')
+    .then(targetCollection => {
+        const tcId = targetCollection.id;
+        console.log(`created targetCollection: ${tcId}`);
 
-        return ( Promise.resolve()
-            // rename targetCollection
-            .then(() => api.renameTargetCollection(targetCollectionId, "renamed targetCollection"))
+        return api.renameTargetCollection(tcId, "Renamed Image Target Collection")
             .then(targetCollection => {
-                console.log(`renamed targetCollection: ${targetCollection.id}`);
-            })
+                console.log(`Updated Image Target Collection name to be ${targetCollection.name}`);
 
-            // Add multiple target images to the collection (Note this happens in parallel to the previous deletion test)
-            .then(() => {
-                var target = { name: "myTarget0", imageUrl: EXAMPLE_IMAGE_URLS[0] };
+                const target = {name: "myTarget0", imageUrl: EXAMPLE_IMAGE_URLS[0]};
 
-                return api.addTarget(targetCollectionId, target)
+                return api.addTargets(tcId, [target]);
             })
-            .then(target => {
-                console.log(`created target ${target.id}`);
-            })
+            .then(targets => {
+                console.log(`Created Image Targets ${targets}`);
 
-
-            // Add multiple target images to the collection (Note this happens in parallel to the previous deletion test)
-            .then(() => {
-                var targets = [
-                    { name: "myTarget1", imageUrl: EXAMPLE_IMAGE_URLS[1] }
-                ];
-
-                return api.addTargets(targetCollectionId, targets)
+                return api.generateTargetCollection(tcId);
             })
-            .then(status => {
-                console.log(`created targets, generation id: ${status.generationId}`);
-            })
-
-            // generate target collection
-            .then(() => {
-                console.log(`PUBLISH TARGET COLLECTION`);
-            })
-            .then(() => api.generateTargetCollection(targetCollectionId))
             .then(archive => {
-                console.log(`generated cloud archive: ${archive.id}`);
-            })
+                console.log(`Generated cloud archive: ${archive.id}`);
 
-            // clean up and delete targetCollection
-            .then(() => api.deleteTargetCollection(targetCollectionId))
-            .then(() => {
-                console.log(`removed targetCollection: ${targetCollectionId}`);
+                return api.deleteTargetCollection(tcId);
             })
-        );
+            .then(() => console.log(`Removed Image Target Collection: ${tcId}`));
     })
     .catch(error => {
         console.error("ERROR OCCURRED:", error.message, error);
+    });
+
+api.createObjectTargetCollection('Object Target Collection')
+    .then(objectTargetCollection => {
+        const tcId = objectTargetCollection.id;
+        console.log(`created targetCollection with id ${tcId}`);
+
+        return api.updateObjectTargetCollection(tcId, 'New OTC Name')
+            .then(targetCollection => {
+                console.log(`Updated Object Target Collection name to be ${targetCollection.name}`);
+
+                const newObjectTarget = {
+                    name: 'New Object Target',
+                    resource: {
+                        uri: EXAMPLE_OBJECT_VIDEO,
+                        fov: 60
+                    },
+                    metadata: {my: 'meta data'}
+                };
+
+                return api.createObjectTargets(targetCollection.id, [newObjectTarget]);
+            })
+            .then(targets => {
+                console.log(`Create Object Targets ${targets}`);
+
+                return api.generateWto(tcId, '7.0', userEmail);
+            })
+            .then(response => {
+                console.log('Generated WTO file');
+
+                return api.deleteObjectTargetCollection(tcId)
+            })
+            .then(() => console.log(`Removed Image Target Collection: ${tcId}`));
     })
-;
+    .catch(error => {
+        console.error("ERROR OCCURRED:", error.message, error);
+    });

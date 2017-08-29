@@ -39,6 +39,7 @@ var API_ENDPOINT_ROOT       = "api.wikitude.com";
 // placeholders used for url-generation
 var PLACEHOLDER_TC_ID       = "${TC_ID}";
 var PLACEHOLDER_TARGET_ID   = "${TARGET_ID}";
+var PLACEHOLDER_GENERATION_ID   = "${GENERATION_ID}";
 
 // paths used for manipulation of target collection and target images
 var PATH_ADD_TC      = "/cloudrecognition/targetCollection";
@@ -48,6 +49,21 @@ var PATH_GENERATE_TC = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID
 var PATH_ADD_TARGET  = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target";
 var PATH_ADD_TARGETS = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/targets";
 var PATH_GET_TARGET  = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target/" + PLACEHOLDER_TARGET_ID;
+
+var PATH_CREATE_OBJECT_TARGETS = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/targets";
+var PATH_GET_OBJECT_TARGET  = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/target/" + PLACEHOLDER_TARGET_ID;
+var PATH_GET_ALL_OBJECT_TARGETS = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/target";
+var PATH_GET_OBJECT_TARGET_GENERATION_INFORMATION = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/generation/target/" + PLACEHOLDER_GENERATION_ID;
+
+var PATH_CREATE_OBJECT_TC = "/cloudrecognition/objectTargetCollection/";
+var PATH_GET_OBJECT_TC = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID;
+var PATH_GENERATE_WTO = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/generation/wto";
+var PATH_WTO_GENERATION_STATUS = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/generation/wto/" + PLACEHOLDER_GENERATION_ID;
+var PATH_GET_OBJECT_TC_JOBS = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/jobs";
+
+var PATH_GET_ALL_PROJECTS = "/cloudrecognition/projects";
+
+var PATH_GENERATE_HEATMAP = "/cloudrecognition/heatmap";
 
 // status codes as returned by the api
 var HTTP_OK         = 200;
@@ -155,19 +171,6 @@ module.exports = class ManagerAPI {
     }
 
     /**
-     * adds a target to an existing target collection. Note: You have to call generateTargetCollection to take changes into account
-     * @param {string} tcId id of the target collection to add target to
-     * @param target JSONObject of targetImages. Must contain 'name' and 'imageUrl' attribute
-     * @returns {Promise}
-     *      resolved once target image was added, result is JSONObject of target ('id' is unique targetId)
-     */
-    addTarget(tcId, target) {
-        var path = PATH_ADD_TARGET.replace(PLACEHOLDER_TC_ID, tcId);
-
-        return sendRequest('POST', path, target);
-    }
-
-    /**
      * Adds targets to existing target collection. Note: You have to call generateTargetCollection to take changes into account
      * @param {string} tcId id of target collection
      * @param targets Array of JSONObjects of targetImages. Must contain 'name' and 'imageUrl' attribute
@@ -232,6 +235,195 @@ module.exports = class ManagerAPI {
         var path = PATH_GENERATE_TC.replace(PLACEHOLDER_TC_ID, tcId);
 
         return sendAsyncRequest('POST', path);
+    }
+
+    /**
+     * Creates a set of up to 10 new Object Targets in an Object Target Collection in your account.
+     * @param {string} tcId The id of the Object Target Collection.
+     * @param {JSONObject[]} targets An array of Object Targets to create.
+     * @returns {Promise} JSON representation of the status of the operation
+     *      resolved once the operation finished, for the result the service will be polled
+     *      Note: Depending on the amount of targets this operation may take from seconds to minutes
+     */
+    createObjectTargets(tcId, targets) {
+        var path = PATH_CREATE_OBJECT_TARGETS.replace(PLACEHOLDER_TC_ID, tcId);
+
+        return sendAsyncRequest('POST', path, targets);
+    }
+
+    /**
+     * Delete a particular Object Target from your Object Target Collection.
+     * @param {string} tcId The id of the Object Target Collection.
+     * @param {string} targetId The id of the Object Target.
+     * @returns {Promise}
+     *      Resolves with an empty response body.
+     */
+    deleteObjectTarget(tcId, targetId) {
+        var path = PATH_GET_OBJECT_TARGET.replace(PLACEHOLDER_TC_ID, tcId).replace(PLACEHOLDER_TARGET_ID, targetId);
+
+        return sendRequest('DELETE', path);
+    }
+
+    /**
+     * Request a particular Object Target of an Object Target Collection.
+     * @param {string} tcId The id of Object Target Collection.
+     * @param {string} targetId The id of the Object Target.
+     * @returns {Promise}
+     *      Resolves with the particular requested Object Target.
+     */
+    getObjectTarget(tcId, targetId) {
+        var path = PATH_GET_OBJECT_TARGET.replace(PLACEHOLDER_TC_ID, tcId).replace(PLACEHOLDER_TARGET_ID, targetId);
+
+        return sendRequest('GET', path);
+    }
+
+    /**
+     * Request all Object Targets of your account.
+     * @param {string} tcId The id of target collection.
+     * @returns {Promise}
+     *      Resolves with an array of Object Targets of your Object Target Collection.
+     */
+    getAllObjectTargets(tcId) {
+        var path = PATH_GET_ALL_OBJECT_TARGETS.replace(PLACEHOLDER_TC_ID, tcId);
+
+        return sendRequest('GET', path);
+    }
+
+    /**
+     * Retrieves information status about a particular scheduled Object Target creation.
+     * @param {string} tcId The id of target collection.
+     * @param {string} generationId The id that identifies the Object Target creation.
+     * @returns {Promise}
+     *      Resolves with the job status.
+     */
+    getObjectTargetGenerationInformation(tcId, generationId) {
+        var path = PATH_GET_OBJECT_TARGET_GENERATION_INFORMATION.replace(PLACEHOLDER_TC_ID, tcId).replace(PLACEHOLDER_GENERATION_ID, generationId);
+
+        return sendRequest('GET', path);
+    }
+
+    /**
+     * Create a new Object Target Collection in your account.
+     * @param {string} name The name of the target collection.
+     * @returns {Promise}
+     *      resolved once target collection was added, value is JSON Object of the created empty target collection
+     */
+    createObjectTargetCollection(name) {
+        var path = PATH_CREATE_OBJECT_TC;
+
+        return sendRequest('POST', path, {name});
+    }
+
+    /**
+     * Delete a Object Target Collection and all its Object Targets
+     * @param {string} tcId The id of the Object Target Collection.
+     * @returns {Promise}
+     *      resolved once the Object Target Collection was deleted,
+     *      value is an empty response body
+     */
+    deleteObjectTargetCollection(tcId) {
+        var path = PATH_GET_OBJECT_TC.replace(PLACEHOLDER_TC_ID, tcId);
+
+        return sendRequest('DELETE', path);
+    }
+
+    /**
+     * Request a particular Object Target Collection in your account.
+     * @param {string} tcId The id of the Object Target Collection.
+     * @returns {Promise}
+     *      Resolves with the particular requested Object Target Collection.
+     */
+    getObjectTargetCollection(tcId) {
+        var path = PATH_GET_OBJECT_TC.replace(PLACEHOLDER_TC_ID, tcId);
+
+        return sendRequest('GET', path);
+    }
+
+    /**
+     * Request all Object Target Collections in your account.
+     * @returns {Promise}
+     *      Resolves with an array of all Object Target Collections in your account.
+     */
+    getAllObjectTargetCollections() {
+        var path = PATH_CREATE_OBJECT_TC;
+
+        return sendRequest('GET', path);
+    }
+
+    /**
+     * Generate a Object Target Collection and all its Object Targets as WTO.
+     * @param {string} tcId The id of the Object Target Collection.
+     * @param {string} sdkVersion Version of the Wikitude SDK to generated the file for. Valid values "7.0".
+     * @param {string} [email] Address to send email notification to after generation finished.
+     */
+    generateWto(tcId, sdkVersion, email) {
+        var path = PATH_GENERATE_WTO.replace(PLACEHOLDER_TC_ID, tcId);
+
+        return sendAsyncRequest('POST', path, {sdkVersion, email});
+    }
+
+    /**
+     * Retrieves information about a particular scheduled wto generation.
+     * @param {string} tcId The id of the Object Target Collection.
+     * @param {string} generationId The id that identifies the Object Targets creation.
+     * @returns {Promise}
+     *      Resolves with the list of jobs.
+     */
+    getWtoGenerationStatus(tcId, generationId) {
+        var path = PATH_WTO_GENERATION_STATUS.replace(PLACEHOLDER_TC_ID, tcId).replace(PLACEHOLDER_GENERATION_ID, generationId);
+
+        return sendRequest('GET', path);
+    }
+
+    /**
+     * Retrieves a list of asynchronous jobs sorted by creation date.
+     * @param {string} tcId The id of the Object Target Collection.
+     * @returns {Promise}
+     *      Resolves with a list of asynchronous jobs.
+     */
+    getObjectTargetCollectionJobs(tcId) {
+        var path = PATH_GET_OBJECT_TC_JOBS.replace(PLACEHOLDER_TC_ID, tcId);
+
+        return sendRequest('GET', path);
+    }
+
+    /**
+     * Updates an existing Object Target Collection in your account.
+     * @param {string} tcId The id of target collection.
+     * @param {string} name The name of the target collection.
+     * @param {JSONObject} metadata Arbitrary JSON data that should be updated in the Object Target Collection.
+     * @returns {Promise}
+     *      resolved once the Object Target Collection was updated,
+     *      value is the JSON Object of the updated Object Target Collection
+     */
+    updateObjectTargetCollection(tcId, name, metadata) {
+        var path = PATH_GET_OBJECT_TC.replace(PLACEHOLDER_TC_ID, tcId);
+
+        return sendRequest('PUT', path, {name, metadata});
+    }
+
+    /**
+     * Request all projects in your account.
+     * @returns {Promise}
+     *      Resolves with an array of all projects in your account.
+     */
+    getAllProjects() {
+        var path = PATH_GET_ALL_PROJECTS;
+
+        return sendRequest('GET', path);
+    }
+
+    /**
+     * Generates a greyscale image out of the input image,
+     * where areas with recognition and tracking relevance are highlighted in color.
+     * @param {string} imageUrl The path to the image of which a heatmap should be created.
+     * @returns {Promise}
+     *      Resolves with the completed heatmap generation job object.
+     */
+    generateHeatmap(imageUrl) {
+        var path = PATH_GENERATE_HEATMAP;
+
+        return sendAsyncRequest('POST', path, {imageUrl});
     }
 };
 

@@ -98,6 +98,7 @@ public class CloudManagerAPI {
 
     private static final String PLACEHOLDER_TC_ID = "${TC_ID}";
     private static final String PLACEHOLDER_TARGET_ID = "${TARGET_ID}";
+    private static final String PLACEHOLDER_GENERATION_ID   = "${GENERATION_ID}";
 
     private static final String PATH_ADD_TC = "/cloudrecognition/targetCollection";
     private static final String PATH_GET_TC = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID;
@@ -106,6 +107,21 @@ public class CloudManagerAPI {
     private static final String PATH_ADD_TARGET = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target";
     private static final String PATH_ADD_TARGETS = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/targets";
     private static final String PATH_GET_TARGET = "/cloudrecognition/targetCollection/" + PLACEHOLDER_TC_ID + "/target/" + PLACEHOLDER_TARGET_ID;
+
+    private static final String PATH_CREATE_OBJECT_TARGETS = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/target";
+    private static final String PATH_GET_OBJECT_TARGET  = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/target/" + PLACEHOLDER_TARGET_ID;
+    private static final String PATH_GET_ALL_OBJECT_TARGETS = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/target";
+    private static final String PATH_GET_OBJECT_TARGET_GENERATION_INFORMATION = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/generation/target/" + PLACEHOLDER_GENERATION_ID;
+
+    private static final String PATH_CREATE_OBJECT_TC = "/cloudrecognition/objectTargetCollection/";
+    private static final String PATH_GET_OBJECT_TC = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID;
+    private static final String PATH_GENERATE_WTO = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/generation/wto";
+    private static final String PATH_WTO_GENERATION_STATUS = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/generation/wto/" + PLACEHOLDER_GENERATION_ID;
+    private static final String PATH_GET_OBJECT_TC_JOBS = "/cloudrecognition/objectTargetCollection/" + PLACEHOLDER_TC_ID + "/jobs";
+
+    private static final String PATH_GET_ALL_PROJECTS = "/cloudrecognition/projects";
+
+    private static final String PATH_GENERATE_HEATMAP = "/cloudrecognition/heatmap";
 
     private static final String HEADER_KEY_TOKEN = "X-Token";
     private static final String HEADER_KEY_VERSION = "X-Version";
@@ -334,7 +350,7 @@ public class CloudManagerAPI {
         return true;
     }
 
-    /***
+    /**
      * Gives command to start generation of given target collection. Note: Added targets will only be analized after generation.
      * @param tcId id of target collection
      * @return JSON representation of the status of the operation
@@ -350,7 +366,242 @@ public class CloudManagerAPI {
     public JSONObject generateTargetCollection(final String tcId) throws IOException, JSONException, APIException, InterruptedException {
         final String requestUrl = PATH_GENERATE_TC.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8"));
 
-        return sendAsyncRequest(Method.POST, requestUrl);
+        return this.sendAsyncRequest(Method.POST, requestUrl);
+    }
+
+    /**
+     * Creates a set of up to 10 new Object Targets in an Object Target Collection in your account.
+     * @param tcId The id of the Object Target Collection.
+     * @param targets An array of Object Targets to create.
+     * @return JSON representation of the status of the operation
+     *      resolved once the operation finished, for the result the service will be polled
+     *      Note: Depending on the amount of targets this operation may take from seconds to minutes
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     * @throws InterruptedException thrown in case polling is interrupted
+     */
+    public JSONObject createObjectTargets(final String tcId, final JSONArray targets) throws IOException, JSONException, APIException, InterruptedException {
+        final String path = PATH_CREATE_OBJECT_TARGETS.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8"));
+        return this.sendAsyncRequest(Method.POST, path, targets);
+    }
+
+    /**
+     * Delete a particular Object Target from your Object Target Collection.
+     * @param tcId The id of the Object Target Collection.
+     * @param targetId The id of the Object Target.
+     * @return Resolves with an empty response body.
+     * @throws FileNotFoundException in case target does not exist
+     * @throws UnsupportedEncodingException in case utf-8 encoder is not possible in your JRE
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     * @throws InterruptedException thrown in case polling is interrupted
+     */
+    public JSONObject deleteObjectTarget(final String tcId, final String targetId) throws IOException, JSONException, APIException, InterruptedException {
+        final String path = PATH_GET_OBJECT_TARGET.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8")).replace(PLACEHOLDER_TARGET_ID, URLEncoder.encode(targetId, "UTF-8"));
+        final String response = this.sendRequest(Method.DELETE, path);
+        return new JSONObject(response);
+    }
+
+    /**
+     * Request a particular Object Target of an Object Target Collection.
+     * @param tcId The id of Object Target Collection.
+     * @param targetId The id of the Object Target.
+     * @return Resolves with the particular requested Object Target.
+     * @throws FileNotFoundException in case target does not exist
+     * @throws UnsupportedEncodingException in case utf-8 encoder is not possible in your JRE
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     * @throws InterruptedException thrown in case polling is interrupted
+     */
+    public JSONObject getObjectTarget(final String tcId, final String targetId) throws IOException, JSONException, APIException, InterruptedException {
+        final String path = PATH_GET_OBJECT_TARGET.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8")).replace(PLACEHOLDER_TARGET_ID, URLEncoder.encode(targetId, "UTF-8"));
+        final String response = this.sendRequest(Method.GET, path);
+        return new JSONObject(response);
+    }
+
+    /**
+     * Request all Object Targets of your account.
+     * @param tcId The id of target collection.
+     * @return Resolves with an array of Object Targets of your Object Target Collection.
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     */
+    public JSONArray getAllObjectTargets(final String tcId) throws IOException, JSONException, APIException {
+        final String path = PATH_GET_ALL_OBJECT_TARGETS.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8"));
+        final String response = this.sendRequest(Method.GET, path);
+        return new JSONArray(response);
+    }
+
+    /**
+     * Retrieves information status about a particular scheduled Object Target creation.
+     * @param tcId The id of target collection.
+     * @param generationId The id that identifies the Object Target creation.
+     * @return Resolves with the job status.
+     * @throws FileNotFoundException in case target does not exist
+     * @throws UnsupportedEncodingException in case utf-8 encoder is not possible in your JRE
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     * @throws InterruptedException thrown in case polling is interrupted
+     */
+    public JSONObject getObjectTargetGenerationInformation(final String tcId, final String generationId) throws IOException, JSONException, APIException, InterruptedException {
+        final String path = PATH_GET_OBJECT_TARGET_GENERATION_INFORMATION.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8")).replace(PLACEHOLDER_GENERATION_ID, URLEncoder.encode(generationId, "UTF-8"));
+        final String response = this.sendRequest(Method.GET, path);
+        return new JSONObject(response);
+    }
+
+    /**
+     * Create a new Object Target Collection in your account.
+     * @param name The name of the target collection.
+     * @return resolved once target collection was added, value is JSON Object of the created empty target collection
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     */
+    public JSONObject createObjectTargetCollection(final String name) throws IOException, JSONException, APIException {
+        final String path = PATH_CREATE_OBJECT_TC;
+        final JSONObject tcJSONObject = new JSONObject();
+        tcJSONObject.put("name", name);
+        final String response =  this.sendRequest(Method.POST, path, tcJSONObject);
+        return new JSONObject(response);
+    }
+
+    /**
+     * Delete a Object Target Collection and all its Object Targets
+     * @param {string} tcId The id of the Object Target Collection.
+     * @return true on successful deletion, false otherwise
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     */
+    public boolean deleteObjectTargetCollection(final String tcId) throws IOException, JSONException, APIException {
+        final String path = PATH_GET_OBJECT_TC.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8"));
+        this.sendRequest(Method.DELETE, path);
+        return true;
+    }
+
+    /**
+     * Request a particular Object Target Collection in your account.
+     * @param tcId The id of the Object Target Collection.
+     * @return JSON representation of target collection
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     */
+    public JSONObject getObjectTargetCollection(final String tcId) throws IOException, JSONException, APIException {
+        final String path = PATH_GET_OBJECT_TC.replace(PLACEHOLDER_TC_ID, tcId);
+        final String responseString =  this.sendRequest(Method.GET, path);
+
+        return new JSONObject(responseString);
+    }
+
+    /**
+     * Request all Object Target Collections in your account.
+     * @return JSONArray containing JSONObjects of all targetCollection that were created
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     */
+    public JSONArray getAllObjectTargetCollections() throws IOException, JSONException, APIException {
+        final String path = PATH_CREATE_OBJECT_TC;
+        final String responseString = this.sendRequest(Method.GET, path);
+        return new JSONArray(responseString);
+    }
+
+    /**
+     * Generate a Object Target Collection and all its Object Targets as WTO.
+     * @param tcId The id of the Object Target Collection.
+     * @param sdkVersion Version of the Wikitude SDK to generated the file for. Valid values "7.0".
+     * @param [email] Address to send email notification to after generation finished.
+     */
+    public JSONObject generateWto(final String tcId, final String sdkVersion, final String email) throws IOException, JSONException, APIException, InterruptedException {
+        final String path = PATH_GENERATE_WTO.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8"));
+        final JSONObject tcJSONObject = new JSONObject();
+        tcJSONObject.put("sdkVersion", sdkVersion);
+        tcJSONObject.put("email", email);
+        return this.sendAsyncRequest(Method.POST, path, tcJSONObject);
+    }
+
+    /**
+     * Retrieves information about a particular scheduled wto generation.
+     * @param tcId The id of the Object Target Collection.
+     * @param generationId The id that identifies the Object Targets creation.
+     * @return JSON representation of list of jobs
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     */
+    public JSONObject getWtoGenerationStatus(final String tcId, final String generationId) throws IOException, JSONException, APIException {
+        final String path = PATH_WTO_GENERATION_STATUS.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8")).replace(PLACEHOLDER_GENERATION_ID, URLEncoder.encode(generationId, "UTF-8"));
+        final String response = this.sendRequest(Method.GET, path);
+        return new JSONObject(response);
+    }
+
+    /**
+     * Retrieves a list of asynchronous jobs sorted by creation date.
+     * @param tcId The id of the Object Target Collection.
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     */
+    public JSONArray getObjectTargetCollectionJobs(final String tcId) throws IOException, JSONException, APIException {
+        final String path = PATH_GET_OBJECT_TC_JOBS.replace(PLACEHOLDER_TC_ID, URLEncoder.encode(tcId, "UTF-8"));
+        final String response = this.sendRequest(Method.GET, path);
+        return new JSONArray(response);
+    }
+
+    /**
+     * Updates an existing Object Target Collection in your account.
+     * @param tcId The id of target collection.
+     * @param name The name of the target collection.
+     * @param metadata Arbitrary JSON data that should be updated in the Object Target Collection.
+     * @return the updated JSON representation of the modified target collection
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     */
+    public JSONObject updateObjectTargetCollection(final String tcId, final String name, final String metadata) throws IOException, JSONException, APIException {
+        final String path = PATH_GET_OBJECT_TC.replace(PLACEHOLDER_TC_ID, tcId);
+        final JSONObject tcJSONObject = new JSONObject();
+        tcJSONObject.put("name", name);
+        tcJSONObject.put("metadata", metadata);
+        final String responseString = this.sendRequest(Method.POST, path, tcJSONObject);
+        return new JSONObject(responseString);
+    }
+
+    /**
+     * Request all projects in your account.
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     */
+    public JSONArray getAllProjects() throws IOException, JSONException, APIException {
+        final String path = PATH_GET_ALL_PROJECTS;
+        final String response = this.sendRequest(Method.GET, path);
+        return new JSONArray(response);
+    }
+
+    /**
+     * Generates a greyscale image out of the input image,
+     * where areas with recognition and tracking relevance are highlighted in color.
+     * @param imageUrl The path to the image of which a heatmap should be created.
+     * @return the completed heatmap generation job object.
+     * @throws IOException thrown in case of network problems
+     * @throws JSONException thrown in case server response is no valid JSON
+     * @throws APIException thrown in case service responds with an error
+     * @throws InterruptedException thrown in case polling is interrupted
+     */
+    public JSONObject generateHeatmap(final String imageUrl) throws IOException, JSONException, APIException, InterruptedException {
+        final String path = PATH_GENERATE_HEATMAP;
+
+        final JSONObject tcJSONObject = new JSONObject();
+        tcJSONObject.put("imageUrl", imageUrl);
+
+        return this.sendAsyncRequest(Method.POST, path, tcJSONObject);
     }
 
     /**
